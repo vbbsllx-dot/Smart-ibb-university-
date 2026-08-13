@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
+/* تعريف الألوان الملكية الفخمة بنظام تيلويند الحديث */
+@theme {
+  --color-space-deep: #020615;
+  --color-space-canvas: #0a1128;
+  --color-cyber-cyan: #00f2fe;
+  --color-cyber-blue: #4facfe;
+  --color-imperial-gold: #ffd700;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: radial-gradient(circle at center, #5475e1 0%, #b6c0ec 100%);
+  color: #b8cfe6;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, sans-serif;
 }
+
+/* بطاقات الزجاج الضبابي الفخمة Bento Grid */
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(175, 164, 164, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(240, 182, 182, 0.37);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* توهج ناعم مذهل عند تمرير الماوس */
+.glass-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(0, 242, 254, 0.3);
+  box-shadow: 0 12px 30px rgba(0, 242, 254, 0.15);
+}
+
+.neon-glow {
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.6);
+}
+
+/* Dynamic motion background: subtle drifting emerald particles */
+@keyframes driftSlow {
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.8; }
+  50% { transform: translate3d(20px, -30px, 0) scale(1.08); opacity: 0.95; }
+  100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.8; }
+}
+
+.motion-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.motion-bg .particle {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(16,185,129,0.12), transparent 40%), radial-gradient(circle at 70% 70%, rgba(6,182,212,0.06), transparent 50%);
+  filter: blur(40px);
+  opacity: 0.9;
+  animation: driftSlow 18s ease-in-out infinite;
+}
+
+.particle.p1 { left: -5%; top: -10%; animation-delay: 0s; transform: scale(1.1); }
+.particle.p2 { right: -8%; top: 10%; animation-delay: 3s; transform: scale(0.9); }
+.particle.p3 { left: 20%; bottom: -12%; animation-delay: 6s; transform: scale(1.2); }
+.particle.p4 { right: 25%; bottom: -8%; animation-delay: 9s; transform: scale(0.95); }
+
+/* Floating subtle tilt for cards using CSS variables set by JS for performance */
+.card-tilt { transform: perspective(800px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateZ(0); transition: transform 180ms linear; }
