@@ -1,240 +1,388 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import { 
+  Search, 
+  Clock, 
+  BookOpen, 
+  Cpu, 
+  Activity, 
+  Building2, 
+  Scale, 
+  GraduationCap, 
+  Sparkles, 
+  Award, 
+  ArrowLeft,
+  Briefcase
+} from 'lucide-react';
 
-const universityDepartments = [
+const collegesData = [
   {
-    title: "كلية الهندسة ",
-    desc: "تضم المنظومة التعليمية لأقسام الهندسة الكهربائية (حاسوب وتحكم)، هندسة تقنية المعلومات، بالإضافة إلى الفروع المدنية والمعمارية المصممة بأحدث المعايير.",
-    code: "FACULTY OF ENGINEERING",
-    stats: "4 أقسام علمية",
-    href: "/departments/engineering",
-    icon: (
-      <svg className="w-5 h-5 text-slate-400 group-hover:text-emerald-400 transition-all duration-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-      </svg>
-    )
+    id: 'engineering',
+    name: 'كلية الهندسة والعمارة',
+    theme: 'indigo',
+    borderColor: 'border-indigo-500/20',
+    glowColor: 'bg-indigo-500/10',
+    iconColor: 'text-indigo-400',
+    departments: [
+      {
+        id: 'computer-control',
+        name: 'هندسة الحاسبات والتحكم',
+        duration: 5,
+        creditHours: 172,
+        description: 'تصميم وبناء الأنظمة المدمجة الذكية، شبكات الحاسوب، وأنظمة التحكم الصناعي المؤتمتة.',
+        careers: ['مهندس أنظمة مدمجة', 'مطور برمجيات تحكم', 'أخصائي شبكات سحابية'],
+        icon: Cpu,
+        path: '/departments/engineering?tab=computer-control' 
+      },
+      {
+        id: 'civil',
+        name: 'الهندسة المدنية',
+        duration: 5,
+        creditHours: 168,
+        description: 'إعداد وتصميم البنى التحتية، الجسور، الطرقات، وإدارة المشاريع الإنشائية الضخمة.',
+        careers: ['مهندس إنشائي', 'مدير مشاريع تشييد', 'مخطط بنى تحتية'],
+        icon: Building2,
+        path: '/departments/engineering?tab=civil'
+      },
+      {
+        id: 'architecture',
+        name: 'الهندسة المعمارية',
+        duration: 5,
+        creditHours: 175,
+        description: 'تكامل الفن مع الهندسة لتصميم مبانٍ مستدامة وعصرية تعكس الهوية والثقافة الإنسانية.',
+        careers: ['مصمم معماري', 'مخطط مدني وعمراني', 'مصمم مستدام'],
+        icon: Building2,
+        path: '/departments/engineering?tab=architecture'
+      },
+      {
+        id: 'telecom',
+        name: 'هندسة الاتصالات',
+        duration: 5,
+        creditHours: 170,
+        description: 'بث البيانات، شبكات الاتصالات اللاسلكية والجيل الخامس وتطوير نظم الميكروويف والألياف الضوئية.',
+        careers: ['مهندس شبكات اتصالات', 'أخصائي إشارات لاسلكية', 'مطور نظم اتصالات'],
+        icon: Cpu,
+        path: '/departments/engineering?tab=telecom'
+      }
+    ]
   },
   {
-    title: "كلية حوسبة وتكنولوجيا المعلومات",
-    desc: "المركز السيبراني الرئيسي لأبحاث علوم الحاسوب، هندسة البرمجيات، نظم المعلومات، ومختبرات الأمن الرقمي والذكاء الاصطناعي الحديثة.",
-    code: "COMPUTING & IT",
-    stats: "3 أقسام علمية",
-    href: "/departments/computing",
-    icon: (
-      <svg className="w-5 h-5 text-slate-400 group-hover:text-emerald-400 transition-all duration-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
-      </svg>
-    )
+    id: 'medicine',
+    name: 'كلية الطب والعلوم الصحية',
+    theme: 'emerald',
+    borderColor: 'border-emerald-500/20',
+    glowColor: 'bg-emerald-500/10',
+    iconColor: 'text-emerald-400',
+    departments: [
+      {
+        id: 'general-medicine',
+        name: 'الطب البشري',
+        duration: 7, 
+        creditHours: 250,
+        description: 'تشخيص الأمراض وتقديم الرعاية الطبية الشاملة والقيام بالبحوث الطبية المتقدمة لإنقاذ البشرية.',
+        careers: ['طبيب عام في المشافي', 'باحث سريري وأكاديمي', 'تخصص زمالة دقيقة'],
+        icon: Activity,
+        path: '/departments/medicine?tab=general-medicine'
+      },
+      {
+        id: 'dentistry',
+        name: 'طب وجراحة الفم والأسنان',
+        duration: 5, 
+        creditHours: 180,
+        description: 'علاج ورعاية وتجميل الأسنان واللثة وجراحة الوجه والفكين بأحدث التقنيات الطبية.',
+        careers: ['طبيب أسنان متخصص', 'جراح وجه وفكين', 'إخصائي تجميل أسنان'],
+        icon: Activity,
+        path: '/departments/dentistry?tab=dent-surgery'
+      },
+      {
+        id: 'labs',
+        name: 'المختبرات الطبية',
+        duration: 4, 
+        creditHours: 140,
+        description: 'تحليل العينات الطبية والمساعدة في تشخيص الأمراض ببيولوجيا الجزيئات والتحاليل الدقيقة.',
+        careers: ['أخصائي تحاليل طبية', 'باحث في بنك الدم', 'محلل جينات مخبري'],
+        icon: Activity,
+        path: '/departments/medicine?tab=labs' // تم تصليحه ليوجه لكلية الطب بتبويب المختبرات
+      },
+      {
+        id: 'nursing',
+        name: 'التمريض',
+        duration: 4,
+        creditHours: 136,
+        description: 'تقديم الرعاية الصحية التمريضية الطارئة والدورية للمرضى في غرف العناية والمشافي.',
+        careers: ['ممرض قانوني متخصص', 'مشرف رعاية صحية أولية', 'أخصائي طوارئ'],
+        icon: Activity,
+        path: '/departments/medicine?tab=nursing' // تم تصليحه ليوجه لكلية الطب بتبويب التمريض فوراً!
+      }
+    ]
   },
   {
-    title: "كلية الطب والعلوم الصحية",
-    desc: "أقسام المختبرات الطبية، الصيدلة السريرية، والتمريض العالي المرتبطة مباشرة بوحدات المحاكاة وأنظمة الرصد الأكاديمي الحية.",
-    code: "MEDICINE SCIENCES",
-    stats: "5 أقسام علمية",
-    href: "/departments/medicine",
-    icon: (
-      <svg className="w-5 h-5 text-slate-400 group-hover:text-emerald-400 transition-all duration-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-      </svg>
-    )
+    id: 'admin',
+    name: 'كلية العلوم الإدارية',
+    theme: 'amber',
+    borderColor: 'border-amber-500/20',
+    glowColor: 'bg-amber-500/10',
+    iconColor: 'text-amber-400',
+    departments: [
+      {
+        id: 'bba',
+        name: 'إدارة الأعمال',
+        duration: 4,
+        creditHours: 132,
+        description: 'دراسة استراتيجيات القيادة، الهيكلة التنظيمية للشركات، وإدارة الموارد البشرية واللوجستية.',
+        careers: ['مدير تنفيذي ومستشار', 'رائد أعمال خاص', 'محلل تطوير إداري'],
+        icon: Building2,
+        path: '/departments/admin?tab=bba'
+      },
+      {
+        id: 'accounting',
+        name: 'المحاسبة',
+        duration: 4,
+        creditHours: 130,
+        description: 'تدقيق الحسابات المالية، إعداد التقارير الضريبية، ومراقبة الميزانيات للكيانات التجارية والحكومية.',
+        careers: ['محاسب قانوني معتمد', 'مدقق مالي داخلي', 'مستشار ضرائب وميزانيات'],
+        icon: Building2,
+        path: '/departments/admin?tab=accounting'
+      },
+      {
+        id: 'finance',
+        name: 'العلوم المالية والمصرفية',
+        duration: 4,
+        creditHours: 134,
+        description: 'تحليل الاستثمار، إدارة المحافظ البنية، ونظم البنوك الرقمية وإدارة المخاطر النقدية.',
+        careers: ['محلل مالي واستثماري', 'إخصائي ائتمان مصرفي', 'مخطط ثروات واستثمار'],
+        icon: Building2,
+        path: '/departments/admin?tab=finance'
+      }
+    ]
   },
   {
-    title: "كلية طب الأسنان",
-    desc: "تتضمن العيادات التعليمية التخصصية وجراحة الفم، بالإضافة إلى معامل التعويضات السنية المربوطة رقمياً بشبكة الكلية المركزي.",
-    code: "DENTISTRY FACULTY",
-    stats: "قسم تخصصي موحد",
-    href: "/departments/dentistry",
-    icon: (
-      <svg className="w-5 h-5 text-slate-400 group-hover:text-emerald-400 transition-all duration-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10"/><path d="M12 6v12M6 12h12"/>
-      </svg>
-    )
-  },
-  {
-    title: "كلية العلوم التطبيقية",
-    desc: "الحاضنة العلمية لأقسام الكيمياء الصناعية، الفيزياء الحيوية، الرياضيات الحاسوبية، ومختبرات معالجة البيانات والتحليل الرقمي.",
-    code: "APPLIED SCIENCES",
-    stats: "4 أقسام علمية",
-    href: "/departments/applied-sciences",
-    icon: (
-      <svg className="w-5 h-5 text-slate-400 group-hover:text-emerald-400 transition-all duration-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2l9 4.91V17.1L12 22l-9-4.9V6.91L12 2z"/>
-      </svg>
-    )
-  },
-  {
-    title: "كلية التجارة والاقتصاد",
-    desc: "أقسام إدارة الأعمال الدولية، نظم المعلومات الإدارية، المحاسبة القانونية، والعلوم المالية والمصرفية المحوسبة بالكامل.",
-    code: "COMMERCE & ECONOMY",
-    stats: "4 أقسام علمية",
-    href: "/departments/commerce",
-    icon: (
-      <svg className="w-5 h-5 text-slate-400 group-hover:text-emerald-400 transition-all duration-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-      </svg>
-    )
+    id: 'law',
+    name: 'كلية الشريعة والقانون',
+    theme: 'purple',
+    borderColor: 'border-purple-500/20',
+    glowColor: 'bg-purple-500/10',
+    iconColor: 'text-purple-400',
+    departments: [
+      {
+        id: 'law-sharia',
+        name: 'الشريعة والقانون',
+        duration: 4,
+        creditHours: 140,
+        description: 'دراسة الفقه الموحد، القوانين الدستورية والجنائية والمدنية، وإعداد الكوادر القضائية والحقوقية.',
+        careers: ['محامٍ معتمد ومستشار', 'قاضٍ أو معاون قضائي', 'أخصائي صياغة عقود'],
+        icon: Scale,
+        path: '/departments/law?tab=sharia-law'
+      }
+    ]
   }
 ];
 
-export default function DepartmentsPage() {
-  const [time, setTime] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(true);
+export default function DepartmentsPortal() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
 
-  useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      setTime(now.toLocaleTimeString('ar-YE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    };
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const totalColleges = collegesData.length;
+  const totalDepartments = collegesData.reduce((sum, c) => sum + c.departments.length, 0);
+
+  const filteredColleges = collegesData
+    .map(college => {
+      if (activeFilter !== 'all' && college.id !== activeFilter) {
+        return null;
+      }
+
+      const matchedDeps = college.departments.filter(dep => 
+        dep.name.includes(searchTerm) || dep.description.includes(searchTerm)
+      );
+
+      if (matchedDeps.length === 0) return null;
+
+      return {
+        ...college,
+        departments: matchedDeps
+      };
+    })
+    .filter(Boolean) as typeof collegesData;
 
   return (
-    <div className={`min-h-screen relative overflow-hidden flex flex-col justify-between transition-colors duration-700 font-sans p-4 md:p-6 ${
-      isDarkMode ? "bg-[#040712] text-slate-200" : "bg-[#f4f7fa] text-slate-800"
-    }`} dir="rtl">
+    <div className="min-h-screen bg-[#F1F5F9] text-slate-800 flex flex-col justify-between font-sans relative overflow-hidden" dir="rtl">
       
-      {/* 🌌 الإضاءة السحابية الخلفية الممتدة */}
-      <div className="absolute inset-0 z-0 pointer-events-none transition-all duration-700">
-        {isDarkMode ? (
-          <>
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.03)_0%,transparent_60%)]" />
-            <div className="absolute w-[500px] h-[500px] rounded-full bg-emerald-500/[0.03] blur-[130px] bottom-[-5%] left-[-5%] animate-pulse" style={{ animationDuration: '9s' }} />
-          </>
-        ) : (
-          <>
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.04)_0%,transparent_70%)]" />
-            <div className="absolute w-[500px] h-[500px] rounded-full bg-indigo-400/[0.05] blur-[110px] top-[-5%] right-[5%]" />
-          </>
-        )}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute w-[600px] h-[600px] rounded-full bg-indigo-400/10 blur-[140px] top-[-10%] right-[-10%]" />
+        <div className="absolute w-[500px] h-[500px] rounded-full bg-emerald-400/10 blur-[130px] bottom-[-10%] left-[-10%]" />
       </div>
 
-      {/* 🏛️ الشريط العلوي المصقول الفخم */}
-      <header className={`w-full backdrop-blur-2xl px-6 py-4 flex justify-between items-center relative z-20 select-none border rounded-2xl transition-all duration-500 ${
-        isDarkMode ? "bg-[#0a101f]/80 border-slate-800/80 shadow-md" : "bg-white/80 border-slate-200/80 shadow-md"
-      }`}>
-        <div className="flex items-center gap-3">
-          <Link href="/" className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_12px_#10b981]" />
-          <h1 className="text-base font-bold tracking-wide">منظومة كليات جامعة إب الذكية</h1>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setIsDarkMode(!isDarkMode)} 
-            className={`p-2 rounded-xl border flex items-center justify-center transition-all duration-500 shadow-md active:scale-95 ${
-              isDarkMode ? "bg-slate-900/80 border-slate-800 text-amber-400 hover:bg-slate-800" : "bg-white border-slate-200 text-indigo-600 hover:bg-slate-50"
-            }`}
-          >
-            {isDarkMode ? (
-              <svg className="w-4 h-4 animate-spin" style={{ animationDuration: '40s' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/></svg>
-            ) : (
-              <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            )}
-          </button>
-          <div className={`font-mono text-[11px] border px-3 py-1 rounded-xl ${isDarkMode ? "text-slate-300 border-slate-800/60 bg-slate-900/60" : "text-slate-600 border-slate-200 bg-white"}`}>
-            {time || "00:00:00"}
-          </div>
-        </div>
-      </header>
-
-      {/* الهيكل التفصيلي: تقسيم ثنائي (Sidebar + Main Content) */}
-      <div className="flex-grow w-full max-w-[1500px] mx-auto flex flex-col lg:flex-row gap-6 items-stretch relative z-10 my-6">
+      <div className="max-w-[1400px] w-full mx-auto px-4 py-8 relative z-10 flex-grow space-y-8">
         
-        {/* 📋 القسم الأيمن (Sidebar Index): لوحة البيانات السريعة */}
-        <aside className={`w-full lg:w-[320px] border rounded-3xl p-6 backdrop-blur-2xl transition-all duration-500 flex flex-col justify-between ${
-          isDarkMode ? "bg-[#060b16]/90 border-slate-800/90 shadow-xl" : "bg-white/60 border-slate-200/80 shadow-sm"
-        }`}>
-          <div className="select-none">
-            <div className="flex items-center gap-2 mb-4 border-b border-slate-800/40 pb-3">
-              <div className={`w-1.5 h-3.5 rounded-full ${isDarkMode ? "bg-emerald-500" : "bg-indigo-500"}`} />
-              <span className="text-xs font-bold tracking-wider opacity-80">الفهرس الإحصائي الموحد</span>
+        <div className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-wider">
+              <Sparkles className="w-4 h-4" />
+              <span>البوابة التعليمية الذكية لجامعة إب</span>
             </div>
-            
-            <p className="text-xs opacity-75 leading-relaxed font-light mb-6">
-              مرحباً بك في وحدة عرض الهياكل البرمجية المعتمدة لجامعة إب، يمكنك الانتقال المباشر لكل كلية لمراجعة فروعها وأقسامها.
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">دليل الكليات والتخصصات الأكاديمية</h1>
+            <p className="text-xs text-slate-500 font-bold max-w-xl leading-relaxed">
+              تصفح الأقسام العلمية، تعرف على خططها الدراسية وسنوات رصدها، والفرص والمسارات المهنية الواعدة لكل تخصص أكاديمي.
             </p>
+          </div>
 
-            <div className="space-y-4">
-              <div className={`p-3 rounded-xl border ${isDarkMode ? "bg-slate-900/40 border-slate-800/60" : "bg-slate-50 border-slate-200"}`}>
-                <div className="text-[10px] opacity-50 mb-0.5">إجمالي الكليات المدرجة</div>
-                <div className="text-xl font-extrabold text-emerald-500">06 كليات مركزية</div>
+          <div className="flex items-center gap-4 select-none">
+            <div className="bg-[#0A2540] text-white border border-white/10 rounded-2xl p-4 flex items-center gap-3 shadow-md">
+              <div className="p-2 bg-white/10 rounded-xl"><GraduationCap className="w-5 h-5 text-sky-400" /></div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-300">إجمالي الكليات</p>
+                <p className="text-base font-black text-white">{totalColleges}</p>
               </div>
-              <div className={`p-3 rounded-xl border ${isDarkMode ? "bg-slate-900/40 border-slate-800/60" : "bg-slate-50 border-slate-200"}`}>
-                <div className="text-[10px] opacity-50 mb-0.5">بروتوكول فحص الصلاحيات</div>
-                <div className="text-xs font-mono text-blue-400">ACTIVE NODE OK // v2.6</div>
+            </div>
+            <div className="bg-white/80 border border-slate-200/60 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><Award className="w-5 h-5" /></div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400">التخصصات المتاحة</p>
+                <p className="text-base font-black text-indigo-600">{totalDepartments}</p>
               </div>
             </div>
           </div>
+        </div>
 
-          <Link href="/" className={`w-full py-3 px-4 mt-6 lg:mt-0 rounded-xl text-center font-bold text-xs border transition-all duration-300 active:scale-[0.98] flex items-center justify-center gap-2 ${
-            isDarkMode ? "border-slate-800 hover:border-emerald-500/40 bg-slate-900/60 hover:text-emerald-400" : "border-slate-200 hover:border-indigo-500/40 bg-white hover:text-indigo-600 shadow-sm"
-          }`}>
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m7 7l-7-7 7-7"/></svg>
-            <span>العودة للوحة القيادة الرئيسية</span>
-          </Link>
-        </aside>
+        <div className="flex flex-col md:flex-row md:items-center gap-4 border border-white/60 bg-white/40 backdrop-blur-xl p-4 rounded-3xl shadow-inner">
+          <div className="relative flex-grow">
+            <Search className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text"
+              placeholder="ابحث عن تخصص أكاديمي، مهارة، أو نبذة معينة..."
+              className="w-full pl-4 pr-10 py-3 border border-slate-200/60 rounded-2xl text-xs bg-white/90 font-semibold focus:outline-none focus:border-indigo-500 shadow-sm transition-all placeholder:text-slate-400"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
 
-        {/* 🎛 shrink القسم الأيسر (Grid Content): شبكة كروت الكليات بروابط توجيه حية */}
-        <main className={`flex-grow border rounded-3xl p-6 backdrop-blur-2xl transition-all duration-500 ${
-          isDarkMode ? "bg-[#060b16]/40 border-slate-800/60 shadow-[0_20px_50px_rgba(0,0,0,0.4)]" : "bg-white/40 border-white/60 shadow-sm"
-        }`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full content-start">
-            {universityDepartments.map((dept, idx) => (
-              <div
-                key={idx}
-                className={`rounded-2xl p-5 flex flex-col justify-between border transition-all duration-500 ease-out hover:-translate-y-1 relative group ${
-                  isDarkMode 
-                    ? "bg-[#0e162a]/90 border-slate-800/80 shadow-md hover:border-emerald-500/40 hover:shadow-[0_0_30px_rgba(16,185,129,0.06)]" 
-                    : "bg-white/90 border-slate-200/80 shadow-sm hover:border-indigo-500/40 hover:shadow-[0_0_25px_rgba(99,102,241,0.06)]"
+          <div className="flex flex-wrap items-center gap-2 select-none">
+            <button 
+              onClick={() => setActiveFilter('all')}
+              className={`text-xs font-black px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                activeFilter === 'all' 
+                  ? 'bg-[#0A2540] border-[#0A2540] text-white shadow-md' 
+                  : 'bg-white/80 border-slate-200 hover:bg-slate-50 text-slate-600'
+              }`}
+            >
+              الكل
+            </button>
+            {collegesData.map(college => (
+              <button 
+                key={college.id}
+                onClick={() => setActiveFilter(college.id)}
+                className={`text-xs font-black px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                  activeFilter === college.id 
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
+                    : 'bg-white/80 border-slate-200 hover:bg-slate-50 text-slate-600'
                 }`}
               >
-                <div className="flex justify-between items-start mb-3 select-none">
-                  <div className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all duration-300 ${
-                    isDarkMode ? "bg-slate-900 border-slate-800 text-slate-400 group-hover:text-emerald-400" : "bg-slate-50 border-slate-200 text-slate-500 group-hover:text-indigo-600"
-                  }`}>
-                    {dept.icon}
-                  </div>
-                  <span className={`text-[9px] font-mono border px-2 py-0.5 rounded ${
-                    isDarkMode ? "text-emerald-400/70 border-slate-800/60 bg-slate-900/50" : "text-indigo-500 border-slate-200 bg-white"
-                  }`}>
-                    {dept.stats}
+                {college.name.replace('كلية ', '')}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-12">
+          {filteredColleges.length > 0 ? (
+            filteredColleges.map(college => (
+              <div key={college.id} className="space-y-6">
+                
+                <div className="flex items-center gap-3 border-b border-slate-200 pb-3">
+                  <span className={`w-2.5 h-6 rounded-full ${
+                    college.theme === 'indigo' ? 'bg-indigo-600' :
+                    college.theme === 'emerald' ? 'bg-emerald-600' :
+                    college.theme === 'amber' ? 'bg-amber-600' : 'bg-purple-600'
+                  }`} />
+                  <h2 className="text-base font-black text-slate-900">{college.name}</h2>
+                  <span className="text-[10px] font-mono bg-white/60 text-slate-400 border px-2.5 py-0.5 rounded-full font-bold">
+                    عدد الأقسام: {college.departments.length}
                   </span>
                 </div>
 
-                <div className="flex-grow select-none">
-                  <h3 className={`text-sm font-bold mb-1.5 transition-colors duration-300 ${
-                    isDarkMode ? "text-slate-100 group-hover:text-emerald-400" : "text-slate-800 group-hover:text-indigo-600"
-                  }`}>
-                    {dept.title}
-                  </h3>
-                  <p className={`text-[11px] font-light leading-relaxed transition-colors duration-300 ${
-                    isDarkMode ? "text-slate-400" : "text-slate-600"
-                  }`}>
-                    {dept.desc}
-                  </p>
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {college.departments.map(dep => {
+                    const DepIcon = dep.icon;
+                    return (
+                      <div 
+                        key={dep.id}
+                        className="border border-white/80 bg-white/50 backdrop-blur-md rounded-3xl p-6 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300 flex flex-col justify-between group/card relative overflow-hidden"
+                      >
+                        <div className={`absolute w-32 h-32 rounded-full ${college.glowColor} blur-2xl -top-10 -left-10 pointer-events-none`} />
 
-                <div className={`text-[8px] font-mono tracking-widest mt-4 opacity-40 border-t pt-2 transition-colors duration-300 ${isDarkMode ? "border-slate-800/60 text-slate-500" : "border-slate-100 text-slate-400"}`}>
-                  {dept.code}
-                </div>
+                        <div className="space-y-4 relative z-10">
+                          <div className="flex justify-between items-start">
+                            <div className={`p-3 rounded-2xl bg-white border border-slate-100 shadow-sm ${college.iconColor}`}>
+                              <DepIcon className="w-5 h-5" />
+                            </div>
 
-                {/* رابط التوجيه الفرعي المخصص والذكي للكرت */}
-                <Link href={dept.href} className="absolute inset-0 z-20 rounded-2xl" aria-label={dept.title} />
+                            <div className="flex items-center gap-1.5 select-none">
+                              <div className="flex items-center gap-1 text-[10px] font-black bg-slate-950 text-white px-2.5 py-1 rounded-full shadow-sm">
+                                <Clock className="w-3 h-3 text-sky-400" />
+                                <span>{dep.duration} {dep.duration === 7 ? 'سنوات' : dep.duration === 5 ? 'سنوات' : 'سنوات'}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-[10px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 px-2.5 py-1 rounded-full">
+                                <BookOpen className="w-3 h-3" />
+                                <span>{dep.creditHours} ساعة</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 text-right">
+                            <h3 className="font-black text-sm text-slate-900 tracking-wide group-hover/card:text-indigo-600 transition-colors">
+                              {dep.name}
+                            </h3>
+                            <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                              {dep.description}
+                            </p>
+                          </div>
+
+                          <div className="pt-3 border-t border-slate-100 space-y-2 text-right">
+                            <div className="flex items-center gap-1 text-[10px] font-black text-slate-400 select-none">
+                              <Briefcase className="w-3.5 h-3.5" />
+                              <span>مجالات العمل المتوقعة للخريج:</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {dep.careers.map((career, cIdx) => (
+                                <span 
+                                  key={cIdx}
+                                  className="text-[9px] font-black bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200/60 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                                >
+                                  {career}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 mt-4 border-t border-slate-100/60 flex justify-end relative z-10">
+                          <Link 
+                            href={dep.path}
+                            className="text-[10px] font-black text-[#0A2540] bg-white border border-slate-200 hover:border-indigo-500 hover:text-indigo-600 px-4 py-2.5 rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer hover:shadow"
+                          >
+                            <span>عرض الخطط الدراسية والمناهج</span>
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            ))}
-          </div>
-        </main>
-
+            ))
+          ) : (
+            <div className="text-center py-20 text-slate-400 font-bold text-xs select-none space-y-2 border border-dashed border-slate-300 rounded-3xl bg-white/40">
+              <p>📭 لا توجد نتائج مطابقة لبحثك الحالي.</p>
+              <p className="text-[11px] text-slate-400 font-medium">تأكد من كتابة الكلمات بشكل صحيح أو قم بتغيير فلاتر الكليات لليمين.</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* 📌 الفوتر الأكاديمي الموحد */}
-      <footer className={`w-full py-3 text-center text-[10px] font-mono tracking-widest z-10 border rounded-2xl backdrop-blur-md select-none transition-all duration-500 ${
-        isDarkMode ? "text-slate-600 border-slate-900/60 bg-[#060a12]/40" : "text-slate-400 border-slate-200/60 bg-white/40"
-      }`}>
-        IBB UNIVERSITY ACCREDITED PLATFORM SYSTEM NODE v2.6.0 // SECURE CENTRAL HUB
+      <footer className="w-full py-4 text-center text-[10px] font-mono tracking-widest z-10 border-t border-white bg-white/80 backdrop-blur-md rounded-xl shadow-sm text-slate-400 select-none print:hidden">
+        IBB UNIVERSITY PORTAL MODULE v2.0.0 // DYNAMIC ROSTER ENGINE
       </footer>
     </div>
   );

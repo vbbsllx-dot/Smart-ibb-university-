@@ -5,6 +5,9 @@ import Link from 'next/link';
 // 1️⃣ استيراد عميل الاتصال بـ Supabase
 import { supabase } from '@/lib/supabase';
 
+import DubbingStudio from '../../components/student/DubbingStudio';
+
+
 export default function StudentDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [time, setTime] = useState('');
@@ -385,6 +388,20 @@ export default function StudentDashboard() {
                   <p className="text-[10px] font-medium text-slate-500 line-clamp-1">مشاركة المواد الدراسية</p>
                 </div>
               </button>
+              {/* 6️⃣ كرت دبلجة الفيديوهات بالذكاء الاصطناعي */}
+              <button 
+                onClick={() => setActiveView('dubbing')} 
+                className={`h-[125px] rounded-2xl p-3 flex flex-col justify-between relative group/card border ${activeView === 'dubbing' ? 'border-purple-400 shadow-md bg-white/90' : 'border-white/80 bg-white/60 hover:-translate-y-1 hover:bg-white'} backdrop-blur-md transition-all duration-500 ease-out text-right w-full cursor-pointer`}
+              >
+                <div className="w-full h-[55px] rounded-xl bg-cover bg-center relative overflow-hidden border border-white/40 shadow-inner" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1536240478700-b869070f9279?q=80&w=400')" }}>
+                  <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[0.5px]" />
+                  <div className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-lg bg-black/40 backdrop-blur-md border border-white/20 text-xs">🎙️</div>
+                </div>
+                <div className="mt-1">
+                  <h4 className={`font-black text-xs tracking-tight transition-colors ${activeView === 'dubbing' ? 'text-purple-600' : 'text-slate-900 group-hover/card:text-purple-600'}`}>استوديو الدبلجة (AI)</h4>
+                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">ترجمة المقاطع التعليمية</p>
+                </div>
+              </button>
             </div>
             
           </aside>
@@ -644,11 +661,17 @@ export default function StudentDashboard() {
                           </>
                         )}
                       </button>
+
                     </div>
 
                   </form>
+
                 </div>
               </section>
+            )}
+            {/* واجهة دبلجة الفيديوهات بالذكاء الاصطناعي (مكون خارجي) */}
+            {activeView === 'dubbing' && (
+              <DubbingStudio studentData={studentData} />
             )}
 
           </main>

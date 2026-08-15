@@ -1,22 +1,21 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useRef } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion'; 
-import { supabase } from '@/lib/supabase';
+import AdsSlider from './components/AdsSlider'; // 👈 استدعاء مكون الإعلانات المستقل
 import { 
   GraduationCap, 
   Scale, 
   BarChart3, 
   ShieldCheck, 
-  Cpu, 
   ArrowLeftRight,
   BookOpen, 
   UserCheck, 
   FileText, 
   Building2 
 } from 'lucide-react';
-    
+
 const platformCards = [
   {
     title: "محرك المكتبة الذكية",
@@ -57,17 +56,7 @@ const platformCards = [
 ];
 
 export default function HomePage() {
-  const [time, setTime] = useState('');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const updateClock = () => {
-      setTime(new Date().toLocaleTimeString('ar-YE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    };
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -96,7 +85,7 @@ export default function HomePage() {
         />
       </div>
 
-      {/* 🏛️ 1. الشريط العلوي الثابت */}
+      {/* 🏛️ 1. الشريط العلوي الثابت مع زر إنشاء الحساب التفاعلي */}
       <header className="w-full bg-gradient-to-r from-[#0A2540] via-[#0E3354] to-[#0F5E49] text-white px-6 py-4 flex justify-between items-center relative z-10 rounded-2xl shadow-xl border border-white/10 backdrop-blur-md select-none">
         <div className="flex items-center gap-3">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_15px_#34d399]" />
@@ -104,15 +93,44 @@ export default function HomePage() {
             منصة جامعة إب الذكية الشاملة <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-black">SECURE CORE</span>
           </h1>
         </div>
-        <div className="font-mono text-xs border border-white/10 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-xl text-emerald-300 font-extrabold shadow-inner flex items-center gap-1.5">
-          <Cpu className="w-3.5 h-3.5 text-sky-400 animate-spin" style={{ animationDuration: '4s' }} /> {time || "00:00:00"}
-        </div>
+
+        {/* 🚪 زر إنشاء حساب التفاعلي */}
+        <Link 
+          href="/login/register" 
+          className="group relative flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/30 hover:bg-black/50 border border-white/10 hover:border-emerald-500/50 text-slate-200 hover:text-white transition-all duration-300 shadow-inner backdrop-blur-md select-none"
+          title="إنشاء حساب جديد"
+        >
+          <span className="text-xs font-bold tracking-wide text-emerald-300 group-hover:text-emerald-200 transition-colors">
+            إنشاء حساب
+          </span>
+          <div className="relative w-5 h-5 flex items-center justify-center">
+            <svg 
+              className="w-5 h-5 text-emerald-400" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="1.8" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <path d="M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" className="text-slate-400 group-hover:text-emerald-400 transition-colors duration-300" />
+              <path d="M13 4v16" className="origin-left transform group-hover:-rotate-45 group-hover:translate-x-1 transition-transform duration-300 ease-out text-emerald-400" />
+              <g className="transform group-hover:translate-x-1.5 transition-transform duration-300 ease-out">
+                <circle cx="5" cy="8" r="1.5" className="fill-emerald-400 stroke-none" />
+                <path d="M3 17c0-2 1.5-3.5 3.5-3.5S10 15 10 17" className="text-emerald-400" />
+              </g>
+            </svg>
+          </div>
+        </Link>
       </header>
+
+      {/* 🖼️ 2. استدعاء سلايدر إعلانات الجامعة المستقل */}
+      <AdsSlider />
 
       {/* 📥 الجسم الرئيسي للمنصة */}
       <main className="flex-grow flex flex-col xl:flex-row items-center justify-center gap-6 max-w-[1550px] w-full mx-auto relative z-10 py-6">
         
-        {/* ✉️ 2. الدرع الزجاجي الترحيبي العائم */}
+        {/* ✉️ 3. الدرع الزجاجي الترحيبي العائم */}
         <motion.div 
           initial={{ opacity: 0, x: 50, scale: 0.95 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
@@ -151,7 +169,7 @@ export default function HomePage() {
           </div>
         </motion.div>
 
-        {/* 🎛️ 3. لوحة التحكم الحاضنة للكروت */}
+        {/* 🎛️ 4. لوحة التحكم الحاضنة للكروت */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -185,7 +203,7 @@ export default function HomePage() {
             </svg>
           </button>
 
-          {/* حاوية الكروت المتوافقة مع الأيقونات الموحدة */}
+          {/* حاوية الكروت */}
           <div 
             ref={scrollContainerRef}
             className="flex overflow-x-auto gap-4 py-2 px-6 justify-start items-center select-none scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden scroll-smooth"
@@ -199,14 +217,12 @@ export default function HomePage() {
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   className={`w-[225px] h-[235px] min-w-[225px] rounded-2xl p-4 flex flex-col justify-between relative group/card border border-white bg-white/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.02)] transition-shadow duration-500 ${card.hoverGlow}`}
                 >
-                  
                   <div 
                     style={{ backgroundImage: card.bgImage }}
                     className="w-full h-[95px] rounded-xl bg-cover bg-center relative overflow-hidden border border-white/40 shadow-inner"
                   >
                     <div className="absolute inset-0 bg-slate-950/25 backdrop-blur-[0.5px]" />
                     
-                    {/* الأيقونة الموحدة الجديدة الذكية من Lucide */}
                     <div className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-lg bg-black/50 backdrop-blur-md border border-white/20 shadow-md">
                       {IconComponent && <IconComponent className="w-4 h-4 text-emerald-400" />}
                     </div>
