@@ -12,7 +12,7 @@ import {
 
 // 📑 واجهة بيانات الإعلان المطابقة لجدول images_ads في Supabase
 interface AdItem {
-  id: number;
+  id: number | string;
   title: string;
   subtitle: string;
   badge: string;
@@ -21,10 +21,10 @@ interface AdItem {
   is_active: boolean;
 }
 
-// 🎨 إعلان افتراضي احتياطي في حال كان الجدول فارغاً أو قيد الصيانة
+// 🎨 إعلان افتراضي ثابت يظهر دائماً في الواجهة
 const fallbackAnnouncements: AdItem[] = [
   {
-    id: 1,
+    id: 'default-fixed-1',
     title: "تعليمٌ وطنيٌّ برؤيةٍ عالمية",
     subtitle: "نُسهم في تحقيق مستهدفات التطور الأكاديمي والتحول الرقمي وبناء مستقبل مستدام لأجيال الوطن.",
     image_url: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1600",
@@ -34,11 +34,11 @@ const fallbackAnnouncements: AdItem[] = [
 ];
 
 export default function AdsSlider() {
-  const [ads, setAds] = useState<AdItem[]>([]);
+  const [ads, setAds] = useState<AdItem[]>(fallbackAnnouncements);
   const [isLoadingAds, setIsLoadingAds] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // 📡 جلب الإعلانات حياً من قاعدة بيانات Supabase
+  // 📡 جلب الإعلانات حياً من قاعدة بيانات Supabase ودمجها مع الإعلان الثابت
   useEffect(() => {
     const fetchAdsFromSupabase = async () => {
       try {
@@ -46,12 +46,13 @@ export default function AdsSlider() {
           .from('images_ads')
           .select('*')
           .eq('is_active', true)
-          .order('id', { ascending: false });
+          .order('created_at', { ascending: false });
 
-        if (error || !data || data.length === 0) {
-          setAds(fallbackAnnouncements);
+        if (!error && data && data.length > 0) {
+          // دمج الإعلان الافتراضي الثابت في البداية مع بقية الإعلانات القادمة من قواعد البيانات
+          setAds([...fallbackAnnouncements, ...data]);
         } else {
-          setAds(data);
+          setAds(fallbackAnnouncements);
         }
       } catch (err) {
         setAds(fallbackAnnouncements);
@@ -70,7 +71,7 @@ export default function AdsSlider() {
       setCurrentSlide((prev) => (prev + 1) % ads.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [ads]);
+  }, [ads.length]);
 
   const nextSlide = () => {
     if (ads.length === 0) return;
@@ -85,7 +86,7 @@ export default function AdsSlider() {
   const currentAd = ads[currentSlide] || fallbackAnnouncements[0];
 
   return (
-    <section className="w-full max-w-[1550px] mx-auto relative z-10 mt-5 select-none">
+    <section className="w-full max-w-[1550px] mx-auto relative z-10 mt-5 select-none dir-rtl">
       <div className="relative w-full h-[220px] sm:h-[280px] md:h-[320px] rounded-[32px] md:rounded-[40px] overflow-hidden border border-white/80 shadow-[0_20px_50px_rgba(0,0,0,0.12)] bg-[#0A2540] group">
         
         {isLoadingAds ? (

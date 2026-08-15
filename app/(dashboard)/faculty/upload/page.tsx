@@ -12,7 +12,9 @@ import {
   BookOpen, 
   AlertCircle, 
   Eye, 
-  EyeOff 
+  EyeOff ,
+  Building2,
+  GraduationCap,
 } from 'lucide-react';
 
 // 🤖 1️⃣ استيراد خدمة الذكاء الاصطناعي للمزامنة
@@ -57,6 +59,28 @@ const universityStructure = [
     ]
   }
 ];
+// 1️⃣ خريطة مسميات المستويات
+const levelNamesMap: Record<number, string> = {
+  1: "المستوى الأول",
+  2: "المستوى الثاني",
+  3: "المستوى الثالث",
+  4: "المستوى الرابع",
+  5: "المستوى الخامس",
+  6: "المستوى السادس",
+  7: "المستوى السابع"
+};
+
+// 2️⃣ دالة تحديد أقصى عدد مستويات بناءً على القسم المختار
+const getMaxLevels = (depId: number | string): number => {
+  if (depId === 'all' || !depId) return 7;
+  
+  const numId = Number(depId);
+  if ([1, 2, 3, 4].includes(numId)) return 5; // كلية الهندسة (5 سنوات)
+  if (numId === 8) return 5;                  // طب وجراحة الفم والأسنان (5 سنوات)
+  if (numId === 5) return 7;                  // الطب البشري (7 سنوات)
+  
+  return 4;                                   // باقي الكليات والأقسام (4 سنوات)
+};
 
 export default function FacultyUploadPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -68,15 +92,36 @@ export default function FacultyUploadPage() {
   const [statusMessage, setStatusMessage] = useState('');
   const [isVisible, setIsVisible] = useState(true);
   const [currentInstructorId, setCurrentInstructorId] = useState('جاري التعرف...');
+  const [doctorRealName, setDoctorRealName] = useState('');
   const router = useRouter();
 
   const searchParams = useSearchParams();
   const isEdit = searchParams.get('edit') === 'true'; 
   const resourceId = searchParams.get('id');
-
-  useEffect(() => {
-    const storedUsername = localStorage.getItem('university_username') || localStorage.getItem('faculty_username') || 'دكتور غير معروف';
+;
+useEffect(() => {
+    const storedUsername = localStorage.getItem('university_username') || localStorage.getItem('faculty_username') || '';
     setCurrentInstructorId(storedUsername);
+
+    // 🔍 استعلام جلب اسم الدكتور الصريح من جدول instructors
+    const fetchDoctorName = async () => {
+      if (!storedUsername) return;
+      const numericId = parseInt(storedUsername);
+      if (isNaN(numericId)) return;
+
+      const { data } = await supabase
+        .from('instructors')
+        .select('name')
+        .eq('id', numericId)
+        .single();
+
+      if (data && data.name) {
+        setDoctorRealName(data.name);
+        localStorage.setItem('faculty_name', data.name);
+      }
+    };
+
+    fetchDoctorName();
 
     if (isEdit) {
       setTitle(searchParams.get('title') || '');
@@ -93,7 +138,6 @@ export default function FacultyUploadPage() {
       setIsVisible(searchParams.get('visible') !== 'false'); 
     }
   }, [isEdit, searchParams]);
-
   const loadPdfJSFromSources = (): Promise<any> => {
     return new Promise((resolve) => {
       if (typeof window === 'undefined') return resolve(null);
@@ -222,13 +266,21 @@ export default function FacultyUploadPage() {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const instructorUsername = localStorage.getItem('university_username') || localStorage.getItem('faculty_username');
-    if (!instructorUsername) {
-      return alert('⚠️ خطأ في الجلسة: الرجاء تسجيل الدخول أولاً ليتم التعرف على هويتك الأكاديمية ونشر الملف باسمك الحقيقي!');
-    }
+    // 👤 جلب الاسم الصريح للدكتور أولاً، وفي حال عدم وجوده يتم استخدام اسم المستخدم كخيار احتياطي
+    const doctorFullName = 
+      localStorage.getItem('faculty_name') || 
+      localStorage.getItem('university_fullname') || 
+      localStorage.getItem('user_fullname') || 
+      localStorage.getItem('university_username') || 
+      'دكتور غير معروف';
 
-    if (!title || (!file && !isEdit)) {
-      return alert('الرجاء كتابة عنوان المحاضرة واختيار الملف أولاً!');
+    const instructorUsername = 
+      localStorage.getItem('university_username') || 
+      localStorage.getItem('faculty_username') || 
+      doctorFullName;
+
+    if (!instructorUsername) {
+      return alert('⚠️ خطأ في الجلسة: الرجاء تسجيل الدخول أولاً!');
     }
 
     setIsUploading(true);
@@ -279,39 +331,41 @@ export default function FacultyUploadPage() {
 
       setStatusMessage('💾 جاري توثيق السجلات وربط المرجع بالمعرف الأكاديمي...');
       let dbError = null;
+const finalDoctorName = doctorRealName || localStorage.getItem('faculty_name') || currentInstructorId;
 
-      if (isEdit) {
-        const { error } = await supabase
-          .from('resources')
-          .update({
-            title: title,
-            resource_type: resourceType,
-            level_id: selectedLevel,        
-            dep_id: selectedDeptId, 
-            is_visible: isVisible,          
-            ...(filePublicUrl && { file_url: filePublicUrl }),
-            ...(thumbnailPublicUrl && { thumbnail_url: thumbnailPublicUrl })
-          })
-          .eq('id', parseInt(resourceId || '0')); 
-        
-        dbError = error;
-      } else {
-        const { error } = await supabase
-          .from('resources')
-          .insert({
-            title: title,
-            file_url: filePublicUrl,
-            thumbnail_url: thumbnailPublicUrl, 
-            resource_type: resourceType,
-            level_id: selectedLevel,       
-            dep_id: selectedDeptId, 
-            instructor_id: instructorUsername, 
-            is_visible: isVisible          
-          });
-        
-        dbError = error;
-      }
-
+   if (isEdit) {
+      const { error } = await supabase
+        .from('resources')
+        .update({
+          title: title,
+          instructor_id: currentInstructorId, // 👈 إعادة حفظ الرقم الأكاديمي (202020) لتظهر في أرشيف الدكتور
+          resource_type: resourceType,
+          level_id: selectedLevel,        
+          dep_id: selectedDeptId, 
+          is_visible: isVisible,          
+          ...(filePublicUrl && { file_url: filePublicUrl }),
+          ...(thumbnailPublicUrl && { thumbnail_url: thumbnailPublicUrl })
+        })
+        .eq('id', parseInt(resourceId || '0')); 
+      
+      dbError = error;
+    } else {
+      const { error } = await supabase
+        .from('resources')
+        .insert({
+          title: title,
+          instructor_id: currentInstructorId, // 👈 إعادة حفظ الرقم الأكاديمي (202020) لتظهر في أرشيف الدكتور
+          file_url: filePublicUrl,
+          thumbnail_url: thumbnailPublicUrl, 
+          resource_type: resourceType,
+          level_id: selectedLevel,       
+          dep_id: selectedDeptId, 
+          is_visible: isVisible          
+        });
+      
+      dbError = error;
+    }
+      
       if (dbError) throw dbError;
 
       // 🤖 2️⃣ التكشيف الذكي الآلي: إذا كان الملف المرفوع PDF يتم إرساله لسيرفر FastAPI
@@ -381,41 +435,50 @@ if (file && file.type === 'application/pdf') {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-black text-slate-700 flex items-center gap-1">🏛️ الكلية والتخصص المستهدف لفرز المرجع:</label>
-              <select 
-                className="w-full p-3.5 rounded-xl border border-slate-200 text-xs font-black bg-white text-slate-800 focus:outline-none focus:border-indigo-500/40 transition-all cursor-pointer"
-                value={selectedDeptId}
-                onChange={(e) => setSelectedDeptId(parseInt(e.target.value))}
-              >
-                {universityStructure.map((college) => (
-                  <optgroup key={college.name} label={`🏛️ ${college.name}`}>
-                    {college.departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>
-                        ➔ {dept.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
+          <div>
+  <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+    <Building2 className="w-4 h-4 text-[#059669]" /> الكلية والتخصص المستهدف:
+  </label>
+  <select 
+    className="w-full p-3.5 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs font-black text-[#062c35] focus:outline-none focus:border-[#059669] transition-all cursor-pointer"
+    value={selectedDeptId}
+    onChange={(e) => {
+      const newDeptId = parseInt(e.target.value);
+      setSelectedDeptId(newDeptId);
+      // 🔄 إعادة ضبط المستوى إلى الأول تلقائياً في حال تجاوز الحد الأقصى للقسم الجديد
+      if (selectedLevel > getMaxLevels(newDeptId)) {
+        setSelectedLevel(1);
+      }
+    }}
+  >
+    {universityStructure.map((college) => (
+      <optgroup key={college.name} label={`🏛️ ${college.name}`} className="bg-white text-[#059669] font-bold">
+        {college.departments.map((dept) => (
+          <option key={dept.id} value={dept.id} className="bg-white text-slate-800 font-normal">
+            ➔ {dept.name}
+          </option>
+        ))}
+      </optgroup>
+    ))}
+  </select>
+</div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-black text-slate-700 flex items-center gap-1">📈 الفرز حسب المستوى الدراسي:</label>
-              <select 
-                className="w-full p-3.5 rounded-xl border border-slate-200 text-xs font-black bg-white text-slate-800 focus:outline-none focus:border-indigo-500/40 transition-all cursor-pointer"
-                value={selectedLevel}
-                onChange={(e) => setSelectedLevel(parseInt(e.target.value))}
-              >
-                <option value="1">المستوى الأول</option>
-                <option value="2">المستوى الثاني</option>
-                <option value="3">المستوى الثالث</option>
-                <option value="4">المستوى الرابع</option>
-                <option value="5">المستوى الخامس</option>
-              </select>
-            </div>
-          </div>
+  <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+    <GraduationCap className="w-4 h-4 text-[#059669]" /> المستوى الدراسي المستهدف:
+  </label>
+  <select 
+    className="w-full p-3.5 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs font-black text-[#062c35] focus:outline-none focus:border-[#059669] transition-all cursor-pointer"
+    value={selectedLevel}
+    onChange={(e) => setSelectedLevel(parseInt(e.target.value))}
+  >
+    {Array.from({ length: getMaxLevels(selectedDeptId) }, (_, i) => i + 1).map((lvl) => (
+      <option key={lvl} value={lvl}>
+        {levelNamesMap[lvl]}
+      </option>
+    ))}
+  </select>
+</div>
 
           <div className="space-y-1.5">
             <label className="text-xs font-black text-slate-700 flex items-center gap-1">🏷️ تصنيف وتبويب المرجع في المكتبة الرقمية:</label>

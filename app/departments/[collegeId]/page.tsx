@@ -21,7 +21,7 @@ import {
 
 const collegesDatabase: { [key: string]: any } = {
   "engineering": {
-    name: "كلية الهندسة والعمارة",
+    name: "كلية الهندسة",
     theme: "indigo",
     glowColor: "bg-indigo-500/10",
     iconColor: "text-indigo-400",

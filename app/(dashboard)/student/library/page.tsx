@@ -18,10 +18,15 @@ import {
   Scroll,
   PlayCircle,
   FileText,
+  FileArchive,
+  User,
+  Users,
+  Calendar,
+  ExternalLink
 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
-import AiChatWidget from '@/app/components/AIChatWidget'; // أو '@/components/AiChatWidget' بحسب مساره في مشروعك
+import AiChatWidget from '@/app/components/AIChatWidget';
 
 // 🏛️ الهيكلية التنظيمية المعتمدة لكليات وأقسام جامعة إب
 const universityStructure = [
@@ -79,18 +84,31 @@ const universityStructure = [
   }
 ];
 
-const academicLevels = [
-  { id: 1, name: "المستوى الأول" },
-  { id: 2, name: "المستوى الثاني" },
-  { id: 3, name: "المستوى الثالث" },
-  { id: 4, name: "المستوى الرابع" },
-  { id: 5, name: "المستوى الخامس" }
-];
+// 🗺️ خريطة مسميات المستويات حتى المستوى السابع
+const levelNamesMap: Record<number, string> = {
+  1: "المستوى الأول",
+  2: "المستوى الثاني",
+  3: "المستوى الثالث",
+  4: "المستوى الرابع",
+  5: "المستوى الخامس",
+  6: "المستوى السادس",
+  7: "المستوى السابع"
+};
 
 const deptStringToIdMap: { [key: string]: number } = {
   "computer_control": 1, "civil": 2, "architecture": 3, "communications": 4,
   "general_medicine": 5, "laboratories": 6, "nursing": 7, "dentistry_surgery": 8,
   "sharia_law": 9, "business_admin": 10, "accounting": 11, "banking_finance": 12
+};
+
+// 🎓 دالة احتساب حد المستويات الأقصى وفقاً للتخصص والقسم المختار
+const getMaxLevels = (deptStringId: string | null): number => {
+  if (!deptStringId) return 7;
+  const numId = deptStringToIdMap[deptStringId];
+  if ([1, 2, 3, 4].includes(numId)) return 5; // كلية الهندسة (5 سنوات)
+  if (numId === 8) return 5;                  // طب الأسنان (5 سنوات)
+  if (numId === 5) return 7;                  // الطب البشري (7 سنوات)
+  return 4;                                   // باقي الكليات والأقسام (4 سنوات)
 };
 
 export default function PerfectHarmonizedLibrary() {
@@ -107,6 +125,8 @@ export default function PerfectHarmonizedLibrary() {
 
   const [isLoadingSection, setIsLoadingSection] = useState(false);
   const [realBooksData, setRealBooksData] = useState<any[]>([]); 
+  const [projectsData, setProjectsData] = useState<any[]>([]);
+  const [thesesData, setThesesData] = useState<any[]>([]);
 
   useEffect(() => {
     const updateClock = () => {
@@ -117,15 +137,15 @@ export default function PerfectHarmonizedLibrary() {
     return () => clearInterval(interval);
   }, []);
 
+  // 1. جلب كتب ومراجع المقررات
   useEffect(() => {
-    if (!selectedLevel || !selectedDept) {
+    if (activeSection !== 'books' || !selectedLevel || !selectedDept) {
       setRealBooksData([]);
       return;
     }
 
     const fetchLibraryResources = async () => {
       setIsLoadingSection(true);
-      
       const numericDeptId = deptStringToIdMap[selectedDept];
 
       let query = supabase
@@ -155,11 +175,51 @@ export default function PerfectHarmonizedLibrary() {
     };
 
     fetchLibraryResources();
-  }, [selectedLevel, resourceFilter, selectedDept]);
+  }, [selectedLevel, resourceFilter, selectedDept, activeSection]);
+
+  // 2. جلب مشاريع التخرج ورسائل الماجستير ديناميكياً عند التنقل
+  useEffect(() => {
+    const fetchDynamicData = async () => {
+      if (activeSection === 'projects') {
+        setIsLoadingSection(true);
+        const { data, error } = await supabase
+          .from('graduation_projects')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          setProjectsData(data);
+        } else {
+          console.error("خطأ جلب مشاريع التخرج:", error);
+          setProjectsData([]);
+        }
+        setIsLoadingSection(false);
+      }
+
+      if (activeSection === 'theses') {
+        setIsLoadingSection(true);
+        const { data, error } = await supabase
+          .from('master_theses')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          setThesesData(data);
+        } else {
+          console.error("خطأ جلب رسائل الماجستير:", error);
+          setThesesData([]);
+        }
+        setIsLoadingSection(false);
+      }
+    };
+
+    fetchDynamicData();
+  }, [activeSection]);
 
   const handleSectionChange = (sectionId: 'books' | 'projects' | 'ai' | 'theses') => {
     setIsLoadingSection(true);
-    setActiveSection(sectionId as any);
+    setActiveSection(sectionId);
+    setSearchQuery('');
 
     if (sectionId !== 'books') {
       setSelectedCollege(null);
@@ -167,11 +227,40 @@ export default function PerfectHarmonizedLibrary() {
       setSelectedLevel(null);
     }
 
-    setTimeout(() => setIsLoadingSection(false), 350);
+    setTimeout(() => setIsLoadingSection(false), 250);
   };
 
   const currentCollegeData = universityStructure.find(c => c.id === selectedCollege);
   const currentDeptData = currentCollegeData?.departments.find(d => d.id === selectedDept);
+
+  // تصفية نتائج البحث بداخل مشاريع التخرج
+  const filteredProjects = projectsData.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const studentNames = item.student_names || item.students_names || '';
+    const supervisorNames = item.supervisor_names || item.supervisor_name || '';
+    return (
+      item.title?.toLowerCase().includes(q) ||
+      item.abstract?.toLowerCase().includes(q) ||
+      item.description?.toLowerCase().includes(q) ||
+      studentNames.toLowerCase().includes(q) ||
+      supervisorNames.toLowerCase().includes(q)
+    );
+  });
+
+  // تصفية نتائج البحث بداخل رسائل الماجستير
+  const filteredTheses = thesesData.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const researcher = item.student_name || item.researcher_name || '';
+    const supervisor = item.supervisor_name || '';
+    return (
+      item.title?.toLowerCase().includes(q) ||
+      item.abstract?.toLowerCase().includes(q) ||
+      researcher.toLowerCase().includes(q) ||
+      supervisor.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-[#E6ECEB] text-slate-800 flex flex-col justify-between p-4 md:p-6 font-sans relative overflow-hidden select-none" dir="rtl">
@@ -247,7 +336,7 @@ export default function PerfectHarmonizedLibrary() {
             <span className="text-[8.5px] font-mono font-black text-emerald-600 uppercase tracking-widest block animate-pulse">● DATABASE_CONNECTIVITY</span>
             <div className="text-[10px] font-bold text-slate-600 flex justify-between">
               <span>حالة قاعدة البيانات الحقيقية:</span>
-              <span className="font-mono text-emerald-700 font-black flex items-center gap-1"><Database className="w-3 h-3" /> READY_TO_LINK</span>
+              <span className="font-mono text-emerald-700 font-black flex items-center gap-1"><Database className="w-3 h-3" /> LIVE_CONNECTED</span>
             </div>
           </div>
         </div>
@@ -260,18 +349,18 @@ export default function PerfectHarmonizedLibrary() {
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-3.5 rounded-full bg-[#0F5E49] shadow-[0_0_8px_rgba(15,94,73,0.4)]" />
                 <h2 className="text-xs font-black uppercase text-slate-900 tracking-wide">
-                  {activeSection === 'books' && "بوابة الكابلات التخصصية والأرفف الأكاديمية"}
-                  {activeSection === 'projects' && "مستودع أبحاث ومشاريع التخرج الهندسية وحوسبة النظم"}
+                  {activeSection === 'books' && "بوابة الكتب الأكاديمية والمقومات الدراسية"}
+                  {activeSection === 'projects' && "مستودع أبحاث ومشاريع التخرج الهندسية"}
                   {activeSection === 'theses' && "أرشيف الرسائل العلمية والأطروحات العليا"}
                   {activeSection === 'ai' && "منظومة المحادثة والاستعلام الدلالي وفهرسة بطون الكتب RAG"}
                 </h2>
               </div>
               <span className="text-[9px] font-mono tracking-widest border bg-white/80 text-slate-500 px-2 py-0.5 rounded-lg shadow-sm font-black">
-                {activeSection === 'ai' ? "AI_CHAT_INTERFACE" : "NESTED_STRUCTURE"}
+                {activeSection === 'ai' ? "AI_CHAT_INTERFACE" : "LIVE_REPOSITORY"}
               </span>
             </div>
 
-            {/* الجزء الأول: المراجع والكتب */}
+            {/* 🟢 الجزء الأول: المراجع والكتب */}
             {activeSection === 'books' && (
               <div className="flex-grow flex flex-col justify-start">
                 <div className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 bg-white/60 p-2.5 rounded-xl border border-white shadow-sm transition-all duration-300">
@@ -293,7 +382,7 @@ export default function PerfectHarmonizedLibrary() {
                     {selectedLevel && (
                       <>
                         <ArrowRight className="w-3 h-3 text-slate-400" />
-                        <span className="text-emerald-700 font-black">{academicLevels.find(l => l.id === selectedLevel)?.name}</span>
+                        <span className="text-emerald-700 font-black">{levelNamesMap[selectedLevel]}</span>
                       </>
                     )}
                   </div>
@@ -344,12 +433,13 @@ export default function PerfectHarmonizedLibrary() {
                     </motion.div>
                   )}
 
+                  {/* 🎓 عرض المستويات التكيفية وفقاً للحد الأقصى لكل تخصص */}
                   {selectedDept && !selectedLevel && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 p-1">
-                      {academicLevels.map((level) => (
-                        <button key={level.id} onClick={() => setSelectedLevel(level.id)} className="bg-white/80 hover:bg-white border border-white hover:border-emerald-500/30 rounded-2xl p-4 text-center transition-all duration-300 group shadow-sm hover:shadow-md flex flex-col items-center justify-center h-[110px] cursor-pointer">
-                          <span className="text-xs font-black text-slate-500 font-mono bg-slate-100 group-hover:bg-emerald-50 group-hover:text-emerald-600 px-2 py-1 rounded-md transition-colors">LVL - 0{level.id}</span>
-                          <h3 className="text-xs font-black text-slate-900 mt-3 group-hover:text-emerald-700 transition-colors">{level.name}</h3>
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-1">
+                      {Array.from({ length: getMaxLevels(selectedDept) }, (_, i) => i + 1).map((lvlId) => (
+                        <button key={lvlId} onClick={() => setSelectedLevel(lvlId)} className="bg-white/80 hover:bg-white border border-white hover:border-emerald-500/30 rounded-2xl p-4 text-center transition-all duration-300 group shadow-sm hover:shadow-md flex flex-col items-center justify-center h-[110px] cursor-pointer">
+                          <span className="text-xs font-black text-slate-500 font-mono bg-slate-100 group-hover:bg-emerald-50 group-hover:text-emerald-600 px-2 py-1 rounded-md transition-colors">LVL - 0{lvlId}</span>
+                          <h3 className="text-xs font-black text-slate-900 mt-3 group-hover:text-emerald-700 transition-colors">{levelNamesMap[lvlId]}</h3>
                         </button>
                       ))}
                     </motion.div>
@@ -362,7 +452,7 @@ export default function PerfectHarmonizedLibrary() {
                       ) : realBooksData.length > 0 ? (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full p-1 text-right">
                           {realBooksData.map((res: any) => (
-                            <div key={res.id} className="bg-white/80 border border-white hover:border-emerald-500/30 rounded-2xl p-4 flex flex-col justify-between h-[130px] shadow-sm hover:shadow-md transition-all group">
+                            <div key={res.id} className="bg-white/80 border border-white hover:border-emerald-500/30 rounded-2xl p-4 flex flex-col justify-between shadow-sm hover:shadow-md transition-all group">
                               <div className="flex items-start gap-3">
                                 <div className="p-2.5 bg-slate-50 border border-slate-100 text-emerald-600 rounded-xl">
                                   {res.resource_type === 'accredited_book' && <BookOpen className="w-4 h-4" />}
@@ -378,25 +468,22 @@ export default function PerfectHarmonizedLibrary() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="border-t border-slate-100 pt-2.5 mt-2 flex justify-between items-center">
-                                <span className="text-[9px] font-mono text-slate-400 font-bold">SQL_RES_{res.id}</span>
+                              <div className="border-t border-slate-100 pt-2.5 mt-3 flex justify-between items-center">
+                                <span className="text-[9px] font-mono text-slate-400 font-bold">RES_ID_{res.id}</span>
                                 <a href={res.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-xl transition-all">
-                                  <DownloadCloud className="w-3.5 h-3.5" /> تحميل / عرض المصدر
+                                  <DownloadCloud className="w-3.5 h-3.5" /> فتح المصدر
                                 </a>
                               </div>
                             </div>
                           ))}
                         </motion.div>
                       ) : (
-                        <motion.div key={resourceFilter} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center py-14 bg-white/40 border border-white rounded-2xl shadow-inner text-center p-6 w-full">
-                          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full flex items-center justify-center mb-4 animate-pulse">
+                        <div className="flex flex-col items-center justify-center py-14 bg-white/40 border border-white rounded-2xl shadow-inner text-center p-6 w-full">
+                          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full flex items-center justify-center mb-4">
                             <Database className="w-6 h-6" />
                           </div>
                           <h3 className="text-sm font-black text-slate-900">الرف الشامل جاهز ولا توجد مواد حالية</h3>
-                          <p className="text-xs font-bold text-slate-500 mt-2 max-w-sm leading-relaxed">
-                            تمت مزامنة قفل التخصيص لمسار ({currentDeptData?.name} - {academicLevels.find(l => l.id === selectedLevel)?.name}) بنجاح. لا توجد مواد مطابقة للتصنيف حالياً.
-                          </p>
-                        </motion.div>
+                        </div>
                       )}
                     </div>
                   )}
@@ -404,34 +491,215 @@ export default function PerfectHarmonizedLibrary() {
               </div>
             )}
 
-            {/* الجزء الثاني: مشاريع التخرج */}
+            {/* 🟢 الجزء الثاني: مشاريع التخرج (ديناميكي ومربوط مباشرة بـ Supabase) */}
             {activeSection === 'projects' && (
               <div className="flex-grow flex flex-col justify-start">
-                <div className="w-full max-w-md mx-auto mb-6">
-                  <div className="relative flex items-center bg-white border border-slate-200 focus-within:border-emerald-500/50 rounded-xl px-4 py-2.5 transition-all shadow-sm">
-                    <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="البحث السريع بداخل مستودع مشاريع التخرج..." className="w-full bg-transparent text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none text-right" />
-                    <Search className="w-4 h-4 text-slate-400" />
+                {/* بار البحث المباشر */}
+                <div className="w-full max-w-xl mx-auto mb-6">
+                  <div className="relative flex items-center bg-white/90 border border-slate-200/80 focus-within:border-emerald-500 rounded-2xl px-4 py-3 transition-all shadow-sm">
+                    <input 
+                      type="text" 
+                      value={searchQuery} 
+                      onChange={(e) => setSearchQuery(e.target.value)} 
+                      placeholder="ابحث باسم المشروع، أسماء الطلاب، أو المشرف..." 
+                      className="w-full bg-transparent text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none text-right" 
+                    />
+                    <Search className="w-4 h-4 text-slate-400 mr-2" />
                   </div>
                 </div>
 
-                <div className="w-full flex flex-col items-center justify-center py-16 bg-white/40 border border-white rounded-2xl shadow-inner text-center p-6">
-                  <div className="w-14 h-14 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center mb-4 border border-sky-100"><FolderGit2 className="w-6 h-6" /></div>
-                  <h3 className="text-sm font-black text-slate-900">مستودع أبحاث التخرج خالٍ حالياً</h3>
-                </div>
+                {isLoadingSection ? (
+                  <div className="text-center py-16 text-xs font-bold text-emerald-700 animate-pulse">
+                    جاري جلب مشاريع التخرج المأرشفة في المكتبة...
+                  </div>
+                ) : filteredProjects.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
+                    {filteredProjects.map((proj: any) => {
+                      const pdfUrl = proj.pdf_file_url || proj.file_url;
+                      const zipUrl = proj.zip_file_url;
+                      const students = proj.student_names || proj.students_names || 'غير محدد';
+                      const supervisor = proj.supervisor_names || proj.supervisor_name || 'غير محدد';
+
+                      return (
+                        <div key={proj.id} className="bg-white/90 border border-white hover:border-emerald-500/40 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between text-right">
+                          <div>
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center flex-shrink-0">
+                                <FolderGit2 className="w-5 h-5" />
+                              </div>
+                              <span className="text-[10px] font-mono font-black bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg border border-slate-200">
+                                {proj.year || "2026"}
+                              </span>
+                            </div>
+
+                            <h3 className="text-xs font-black text-slate-900 leading-snug mb-2 line-clamp-2">
+                              {proj.title}
+                            </h3>
+
+                            {(proj.abstract || proj.description) && (
+                              <p className="text-[10.5px] font-bold text-slate-500 line-clamp-2 leading-relaxed mb-3">
+                                {proj.abstract || proj.description}
+                              </p>
+                            )}
+
+                            <div className="space-y-1 border-t border-slate-100 pt-3 text-[10px] font-bold text-slate-600">
+                              <div className="flex items-center gap-1.5">
+                                <Users className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                                <span className="truncate">الفريق: {students}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <User className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" />
+                                <span className="truncate">المشرف: {supervisor}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* أزرار التحميل والمعاينة */}
+                          <div className="border-t border-slate-100 pt-3 mt-4 flex items-center gap-2 flex-wrap">
+                            {pdfUrl && (
+                              <a 
+                                href={pdfUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="flex-1 inline-flex items-center justify-center gap-1 text-[10px] font-black bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl transition-all shadow-sm"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>وثيقة PDF</span>
+                              </a>
+                            )}
+
+                            {zipUrl && (
+                              <a 
+                                href={zipUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="flex-1 inline-flex items-center justify-center gap-1 text-[10px] font-black bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded-xl transition-all shadow-sm"
+                              >
+                                <FileArchive className="w-3.5 h-3.5" />
+                                <span>السورس كود ZIP</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="w-full flex flex-col items-center justify-center py-16 bg-white/40 border border-white rounded-2xl shadow-inner text-center p-6">
+                    <div className="w-14 h-14 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center mb-4 border border-sky-100">
+                      <FolderGit2 className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-sm font-black text-slate-900">لا توجد مشاريع تخرج مطابقة للبحث حالياً</h3>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* الجزء الثالث: رسائل الماجستير والدكتوراه */}
+            {/* 🟢 الجزء الثالث: رسائل الماجستير والدكتوراه (ديناميكي ومربوط بـ Supabase) */}
             {activeSection === 'theses' && (
               <div className="flex-grow flex flex-col justify-start">
-                <div className="w-full flex flex-col items-center justify-center py-16 bg-white/40 border border-white rounded-2xl shadow-inner text-center p-6">
-                  <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mb-4 border border-amber-100"><Scroll className="w-6 h-6" /></div>
-                  <h3 className="text-sm font-black text-slate-900">أرشيف الرسائل العلمية جاهز للربط</h3>
+                {/* بار البحث المباشر */}
+                <div className="w-full max-w-xl mx-auto mb-6">
+                  <div className="relative flex items-center bg-white/90 border border-slate-200/80 focus-within:border-amber-500 rounded-2xl px-4 py-3 transition-all shadow-sm">
+                    <input 
+                      type="text" 
+                      value={searchQuery} 
+                      onChange={(e) => setSearchQuery(e.target.value)} 
+                      placeholder="ابحث باسم الرسالة، اسم الباحث، أو المشرف العلمى..." 
+                      className="w-full bg-transparent text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none text-right" 
+                    />
+                    <Search className="w-4 h-4 text-slate-400 mr-2" />
+                  </div>
                 </div>
+
+                {isLoadingSection ? (
+                  <div className="text-center py-16 text-xs font-bold text-amber-700 animate-pulse">
+                    جاري جلب أطروحات ورسائل الماجستير والدكتوراه...
+                  </div>
+                ) : filteredTheses.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
+                    {filteredTheses.map((thesis: any) => {
+                      const pdfUrl = thesis.thesis_pdf_url || thesis.file_url;
+                      const zipUrl = thesis.zip_file_url;
+                      const researcher = thesis.student_name || thesis.researcher_name || 'غير محدد';
+                      const supervisor = thesis.supervisor_name || 'غير محدد';
+
+                      return (
+                        <div key={thesis.id} className="bg-white/90 border border-white hover:border-amber-500/40 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between text-right">
+                          <div>
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center flex-shrink-0">
+                                <Scroll className="w-5 h-5" />
+                              </div>
+                              <span className="text-[10px] font-mono font-black bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg border border-slate-200">
+                                {thesis.year || "2026"}
+                              </span>
+                            </div>
+
+                            <h3 className="text-xs font-black text-slate-900 leading-snug mb-2 line-clamp-2">
+                              {thesis.title}
+                            </h3>
+
+                            {thesis.abstract && (
+                              <p className="text-[10.5px] font-bold text-slate-500 line-clamp-2 leading-relaxed mb-3">
+                                {thesis.abstract}
+                              </p>
+                            )}
+
+                            <div className="space-y-1 border-t border-slate-100 pt-3 text-[10px] font-bold text-slate-600">
+                              <div className="flex items-center gap-1.5">
+                                <User className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                                <span className="truncate">الباحث: {researcher}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <User className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
+                                <span className="truncate">المشرف: {supervisor}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* أزرار التحميل والمعاينة */}
+                          <div className="border-t border-slate-100 pt-3 mt-4 flex items-center gap-2 flex-wrap">
+                            {pdfUrl && (
+                              <a 
+                                href={pdfUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="flex-1 inline-flex items-center justify-center gap-1 text-[10px] font-black bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl transition-all shadow-sm"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>قراءة الرسالة (PDF)</span>
+                              </a>
+                            )}
+
+                            {zipUrl && (
+                              <a 
+                                href={zipUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="flex-1 inline-flex items-center justify-center gap-1 text-[10px] font-black bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded-xl transition-all shadow-sm"
+                              >
+                                <FileArchive className="w-3.5 h-3.5" />
+                                <span>المرفقات (ZIP)</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="w-full flex flex-col items-center justify-center py-16 bg-white/40 border border-white rounded-2xl shadow-inner text-center p-6">
+                    <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mb-4 border border-amber-100">
+                      <Scroll className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-sm font-black text-slate-900">لا توجد رسائل علمية مطابقة للبحث</h3>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* 🟢 الجزء الرابع: محرك الاستعلام المعزز RAG مدمج كاملاً بداخل اللوحة الرئيسية */}
+            {/* 🟢 الجزء الرابع: محرك RAG المدمج */}
             {activeSection === 'ai' && (
               <div className="flex-grow w-full h-full min-h-[520px] flex flex-col justify-between">
                 <AiChatWidget 
@@ -445,7 +713,7 @@ export default function PerfectHarmonizedLibrary() {
 
           </div>
 
-          {/* الشريط السفلي الداخلي للوحة */}
+          {/* الشريط السفلي الداخلي */}
           <div className="text-center text-[9px] font-mono text-slate-400 select-none border-t border-slate-200 py-2 mt-4">
             REGIONAL REPOSITORY MANAGEMENT CORE SYSTEM // PLATFORM ACCESS OK
           </div>

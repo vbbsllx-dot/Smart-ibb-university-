@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -12,16 +12,21 @@ import {
   Pencil
 } from 'lucide-react';
 
+// 📌 إضافات أعلى ملف ResourceCarousel.tsx لإنهاء الخطأ
 const departmentNamesMap: { [key: string | number]: string } = {
   1: 'هندسة الحاسبات والتحكم', 2: 'الهندسة المدنية', 3: 'الهندسة المعمارية', 4: 'هندسة الاتصالات',
   5: 'الطب البشري', 6: 'المختبرات الطبية', 7: 'التمريض', 8: 'طب وجراحة الفم والأسنان',
   9: 'الشريعة والقانون', 10: 'إدارة الأعمال', 11: 'المحاسبة', 12: 'العلوم المالية والمصرفية'
 };
 
+const levelNamesMap: { [key: string | number]: string } = {
+  1: 'المستوى الأول', 2: 'المستوى الثاني', 3: 'المستوى الثالث', 4: 'المستوى الرابع', 5: 'المستوى الخامس', 6: 'المستوى السادس', 7: 'المستوى السابع'
+};
+
 interface ResourceCarouselProps {
   myResources: any[];
   selectedResource: any;
-  onSelectResource: (resource: any) => void;
+  onSelectResource: (resource: any, shouldLoad: boolean) => void; 
   onDeleteResource: (id: number, e: React.MouseEvent) => void;
   setPreviewUrl: (url: string | null) => void;
   setPreviewType: (type: string | null) => void;
@@ -38,6 +43,19 @@ export default function ResourceCarousel({
   router
 }: ResourceCarouselProps) {
 
+  // 🟢 حالة خاصة بمؤشر المرجع المعروض حالياً بمنتصف الكاروسيل
+  const [carouselIndex, setCarouselIndex] = useState<number>(0);
+
+  // 🔄 مزامنة المؤشر المحلي عند اختيار مرجع محدد أو تحديث قائمة المراجع
+  useEffect(() => {
+    if (selectedResource && myResources.length > 0) {
+      const foundIdx = myResources.findIndex(r => r.id === selectedResource.id);
+      if (foundIdx >= 0) {
+        setCarouselIndex(foundIdx);
+      }
+    }
+  }, [selectedResource, myResources]);
+
   // 🔔 دالة توليد صوت النقر الكريستالي برمجياً
   const playClickSound = () => {
     try {
@@ -46,12 +64,12 @@ export default function ResourceCarousel({
       const ctx = new AudioContext();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
+
       osc.type = 'sine';
       osc.frequency.setValueAtTime(880, ctx.currentTime);
       gain.gain.setValueAtTime(0.05, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
-      
+
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
@@ -63,34 +81,62 @@ export default function ResourceCarousel({
 
   const handleCardClick = (res: any) => {
     playClickSound();
-    onSelectResource(res);
+    onSelectResource(res, true); // 🟢 فتح المرجع وتحميل بياناته
   };
-  
+
+  // 🎯 المرجع المعروض حالياً بمنتصف الكاروسيل للترويسة العلوية
+  const activeDisplayResource = myResources.length > 0 
+    ? myResources[carouselIndex % myResources.length] 
+    : selectedResource;
+
   return (
     <section className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl shadow-sm overflow-hidden print:hidden relative">
-      <div className="bg-white/80 border-b border-slate-200/60 px-6 py-4 flex items-center justify-between z-30 relative">
+      
+      {/* 🏛️ ترويسة الأرشيف مع إظهار تفاصيل المادة المعروضة بمنتصف الكاروسيل ديناميكياً */}
+      <div className="bg-white/80 border-b border-slate-200/60 px-6 py-4 flex items-center justify-between z-30 relative dir-rtl text-right flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-3.5 rounded-full bg-indigo-600" />
-          <h3 className="text-xs font-black text-slate-900">أرشيف المواد والمراجع الأكاديمية (عرض زجاجي ذكي)</h3>
+          <div className="w-1.5 h-3.5 rounded-full bg-[#00bc7e]" />
+          <h3 className="text-xs font-black text-[#062c35]">
+            أرشيف المواد والمراجع الأكاديمية 
+          </h3>
         </div>
+
+        {/* 📌 شارات تفاصيل المادة الظاهرة بمنتصف المسرح حالياً */}
+        {activeDisplayResource ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="bg-[#00bc7e]/15 text-[#059669] border border-[#00bc7e]/30 px-3 py-1 rounded-xl text-xs font-black">
+              📚 المادة: {activeDisplayResource.title}
+            </span>
+
+            <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-xl text-[11px] font-bold">
+              🏢 {departmentNamesMap[Number(activeDisplayResource.dept_id || activeDisplayResource.dep_id)] || "القسم العلمي"}
+            </span>
+
+            <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-xl text-[11px] font-bold">
+              🎓 {levelNamesMap[Number(activeDisplayResource.level_id)] || `المستوى ${activeDisplayResource.level_id}`}
+            </span>
+          </div>
+        ) : (
+          <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-100">
+            لم يتم تحديد مادة حالياً
+          </span>
+        )}
+
         <span className="text-[10px] font-mono bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full border border-indigo-100 font-bold">
           العدد: {myResources.length}
         </span>
       </div>
-      
+
       {/* المسرح ثلاثي الأبعاد */}
       <div className="w-full h-[270px] flex items-center justify-center [perspective:1400px] overflow-hidden relative bg-slate-50/50 select-none py-4">
-        
-        {/* 🏹 السهم الأيمن */}
+
+        {/* 🏹 السهم الأيمن: تحريك الكاروسيل بصرياً دون تفريغ جدول الطلاب */}
         <button 
           type="button"
           onClick={() => {
             if (myResources.length > 0) {
               playClickSound();
-              const currentIdx = myResources.findIndex(r => r.id === selectedResource?.id);
-              const activeIdx = currentIdx >= 0 ? currentIdx : 0;
-              const prevIdx = (activeIdx - 1 + myResources.length) % myResources.length;
-              onSelectResource(myResources[prevIdx]);
+              setCarouselIndex((prev) => (prev - 1 + myResources.length) % myResources.length);
             }
           }}
           className="absolute right-6 z-40 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
@@ -98,16 +144,13 @@ export default function ResourceCarousel({
           <ChevronRight className="w-4 h-4" />
         </button>
 
-        {/* 🏹 السهم الأيسر */}
+        {/* 🏹 السهم الأيسر: تحريك الكاروسيل بصرياً دون تفريغ جدول الطلاب */}
         <button 
           type="button"
           onClick={() => {
             if (myResources.length > 0) {
               playClickSound();
-              const currentIdx = myResources.findIndex(r => r.id === selectedResource?.id);
-              const activeIdx = currentIdx >= 0 ? currentIdx : 0;
-              const nextIdx = (activeIdx + 1) % myResources.length;
-              onSelectResource(myResources[nextIdx]);
+              setCarouselIndex((prev) => (prev + 1) % myResources.length);
             }
           }}
           className="absolute left-6 z-40 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
@@ -120,15 +163,14 @@ export default function ResourceCarousel({
           className="relative w-[300px] h-[155px] transition-transform duration-700 ease-out flex items-center justify-center"
           style={{ 
             transformStyle: 'preserve-3d',
-            transform: `rotateY(${(myResources.findIndex(r => r.id === selectedResource?.id) >= 0 ? myResources.findIndex(r => r.id === selectedResource?.id) : 0) * 45}deg)`
+            transform: `rotateY(${carouselIndex * 45}deg)`
           }}
         >
           {myResources.length > 0 ? (
             myResources.map((res, idx) => {
               const anglePerItem = 45; 
-              const currentIdx = myResources.findIndex(r => r.id === selectedResource?.id);
-              const activeIdx = currentIdx >= 0 ? currentIdx : 0;
-              
+              const activeIdx = ((carouselIndex % myResources.length) + myResources.length) % myResources.length;
+
               let distance = Math.abs(idx - activeIdx);
               if (distance > myResources.length / 2) {
                 distance = myResources.length - distance;
@@ -176,7 +218,7 @@ export default function ResourceCarousel({
                       : 'border-slate-200/40 bg-white/10 shadow-sm'
                   }`}
                 >
-                  {/* 🖼️ خلفية المادة/المستند صافية ونقية */}
+                  {/* 🖼️ خلفية المادة/المستند */}
                   <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
                     <img 
                       src={res.thumbnail_url || (
@@ -188,15 +230,15 @@ export default function ResourceCarousel({
                     />
                   </div>
 
-                  {/* 🌟 الغطاء البلوري الزجاجي التفاعلي عند تمرير الماوس (Glassmorphic Overlay) */}
+                  {/* 🌟 الغطاء البلوري الزجاجي التفاعلي عند تمرير الماوس */}
                   <div className="absolute inset-0 z-20 flex flex-col justify-between transition-all duration-300 pointer-events-none">
-                    
+
                     {/* الطبقة الزجاجية التي تظهر عند الـ Hover */}
                     <div className="absolute inset-0 bg-[#070b14]/75 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10" />
 
                     {/* الهيدر العلوي والأزرار */}
                     <div className="p-3 flex justify-between items-center w-full relative z-20 pointer-events-auto">
-                      
+
                       {/* وسم نوع المرجع */}
                       <div className={`p-1.5 rounded-xl border backdrop-blur-xl shadow-md transition-all ${
                         res.resource_type === 'accredited_book' ? 'bg-[#0A2540]/90 border-sky-400/40 text-sky-300' : 
@@ -211,7 +253,7 @@ export default function ResourceCarousel({
                       {/* أزرار الإجراءات الزجاجية عند الـ Hover */}
                       {isCurrent && (
                         <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 transform -translate-y-2 group-hover:translate-y-0">
-                          
+
                           {/* 👁️ المعاينة */}
                           <button 
                             type="button"
@@ -240,7 +282,7 @@ export default function ResourceCarousel({
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                          
+
                           {/* 🗑️ الحذف */}
                           <button 
                             type="button"
@@ -254,7 +296,7 @@ export default function ResourceCarousel({
                       )}
                     </div>
 
-                    {/* الشريط السفلي الأنيق لعنوان ورقة الواجب/المادة */}
+                    {/* الشريط السفلي الأنيق لعنوان المادة */}
                     <div className="p-3 bg-[#090f1c]/95 border-t border-white/10 w-full text-right rounded-b-2xl shadow-2xl relative z-20 backdrop-blur-md">
                       <h4 className="font-black text-xs text-white line-clamp-1 tracking-wide">
                         {res.title}

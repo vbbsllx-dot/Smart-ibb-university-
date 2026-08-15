@@ -20,7 +20,7 @@ import {
 const collegesData = [
   {
     id: 'engineering',
-    name: 'كلية الهندسة والعمارة',
+    name: 'كلية الهندسة ',
     theme: 'indigo',
     borderColor: 'border-indigo-500/20',
     glowColor: 'bg-indigo-500/10',
