@@ -10,6 +10,7 @@
 !.yarn/releases
 !.yarn/versions
 dubbing_backend/venv/
+dubbing_backend/venv/
 
 # testing
 /coverage
