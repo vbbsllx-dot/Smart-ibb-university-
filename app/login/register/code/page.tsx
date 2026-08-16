@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
 
 function VerifyCodeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations('VerifyCode');
   
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -82,23 +84,23 @@ function VerifyCodeContent() {
           router.push(`/login/register/details?role=${role}`);
         } else {
           console.warn("❌ لم يتطابق الكود المدخل مع أي كود في قاعدة البيانات.");
-          setNotification("❌ رمز التحقق الذي أدخلته غير صحيح، يرجى مراجعة بريدك.");
+          setNotification(t('errInvalidCode'));
           setIsLoading(false);
         }
       } else {
         console.warn("❌ لا توجد أي أكواد نشطة مسجلة لهذا البريد في الداتابيز.");
-        setNotification("❌ لم يتم العثور على طلب تفعيل نشط لهذا البريد.");
+        setNotification(t('errNoActiveCode'));
         setIsLoading(false);
       }
     } catch (err: any) {
       console.error("🚨 عطل فني في السيرفر:", err.message);
-      setNotification("🚨 حدث خطأ أثناء الاتصال بقاعدة البيانات، يرجى المحاولة لاحقاً.");
+      setNotification(t('errDatabase'));
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-[#070b14] min-h-screen flex items-center justify-center p-6 relative overflow-hidden" dir="rtl">
+    <div className="bg-[#070b14] min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
       
       {/* توهج خلفي يتغير حساسيته ولونه حسب نوع الحساب */}
       <div className={`absolute w-[400px] h-[400px] rounded-full blur-[130px] pointer-events-none ${
@@ -120,13 +122,11 @@ function VerifyCodeContent() {
           </div>
           
           <h3 className="text-xl font-bold text-white">
-            {role === 'student' ? 'تأكيد بريد الطالب الجامعي' : 'تأكيد بريد عضو هيئة التدريس'}
+            {role === 'student' ? t('studentTitle') : t('facultyTitle')}
           </h3>
           
           <p className="text-slate-400 text-xs mt-2 leading-relaxed">
-            {role === 'student' 
-              ? 'أدخل رمز التفعيل المكون من 6 أرقام المرسل لحسابك الطلابي.' 
-              : 'أدخل رمز التفعيل الأكاديمي المكون من 6 أرقام المرسل لبريدك المعتمد.'}
+            {role === 'student' ? t('studentDesc') : t('facultyDesc')}
           </p>
         </div>
         
@@ -135,7 +135,7 @@ function VerifyCodeContent() {
             <input 
               type="text" 
               value={code} 
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(e.target.value)} 
               className={`w-full bg-[#090d16] border rounded-xl px-4 py-3.5 text-center text-2xl tracking-[0.4em] font-mono text-white focus:outline-none transition-all ${
                 role === 'student' 
                   ? 'border-slate-800 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20' 
@@ -154,15 +154,15 @@ function VerifyCodeContent() {
           )}
 
           <button 
-            type="submit"
-            disabled={isLoading}
+            type="submit" 
+            disabled={isLoading} 
             className={`w-full py-3.5 text-white rounded-xl font-bold text-sm transition-all duration-300 shadow-lg disabled:opacity-50 select-none ${
               role === 'student'
                 ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/20'
                 : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-indigo-900/20'
             }`}
           >
-            {isLoading ? "جاري التحقق ومزامنة السيرفر..." : "تأكيد الرمز والانتقال لاستكمال الملف"}
+            {isLoading ? t('verifying') : t('submitBtn')}
           </button>
         </form>
       </div>
@@ -171,10 +171,12 @@ function VerifyCodeContent() {
 }
 
 export default function VerifyCodePage() {
+  const t = useTranslations('VerifyCode');
+
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#070b14] flex items-center justify-center text-slate-400 text-sm" dir="rtl">
-        جاري تشغيل نظام فحص الأكواد والبروتوكول الأمني...
+      <div className="min-h-screen bg-[#070b14] flex items-center justify-center text-slate-400 text-sm font-sans">
+        {t('fallback')}
       </div>
     }>
       <VerifyCodeContent />

@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { 
   Search, 
   Clock, 
-  BookOpen, 
   Cpu, 
   Activity, 
   Building2, 
@@ -20,7 +20,7 @@ import {
 const collegesData = [
   {
     id: 'engineering',
-    name: 'كلية الهندسة ',
+    name: 'كلية الهندسة',
     theme: 'indigo',
     borderColor: 'border-indigo-500/20',
     glowColor: 'bg-indigo-500/10',
@@ -30,7 +30,6 @@ const collegesData = [
         id: 'computer-control',
         name: 'هندسة الحاسبات والتحكم',
         duration: 5,
-        creditHours: 172,
         description: 'تصميم وبناء الأنظمة المدمجة الذكية، شبكات الحاسوب، وأنظمة التحكم الصناعي المؤتمتة.',
         careers: ['مهندس أنظمة مدمجة', 'مطور برمجيات تحكم', 'أخصائي شبكات سحابية'],
         icon: Cpu,
@@ -40,7 +39,6 @@ const collegesData = [
         id: 'civil',
         name: 'الهندسة المدنية',
         duration: 5,
-        creditHours: 168,
         description: 'إعداد وتصميم البنى التحتية، الجسور، الطرقات، وإدارة المشاريع الإنشائية الضخمة.',
         careers: ['مهندس إنشائي', 'مدير مشاريع تشييد', 'مخطط بنى تحتية'],
         icon: Building2,
@@ -50,7 +48,6 @@ const collegesData = [
         id: 'architecture',
         name: 'الهندسة المعمارية',
         duration: 5,
-        creditHours: 175,
         description: 'تكامل الفن مع الهندسة لتصميم مبانٍ مستدامة وعصرية تعكس الهوية والثقافة الإنسانية.',
         careers: ['مصمم معماري', 'مخطط مدني وعمراني', 'مصمم مستدام'],
         icon: Building2,
@@ -60,7 +57,6 @@ const collegesData = [
         id: 'telecom',
         name: 'هندسة الاتصالات',
         duration: 5,
-        creditHours: 170,
         description: 'بث البيانات، شبكات الاتصالات اللاسلكية والجيل الخامس وتطوير نظم الميكروويف والألياف الضوئية.',
         careers: ['مهندس شبكات اتصالات', 'أخصائي إشارات لاسلكية', 'مطور نظم اتصالات'],
         icon: Cpu,
@@ -80,7 +76,6 @@ const collegesData = [
         id: 'general-medicine',
         name: 'الطب البشري',
         duration: 7, 
-        creditHours: 250,
         description: 'تشخيص الأمراض وتقديم الرعاية الطبية الشاملة والقيام بالبحوث الطبية المتقدمة لإنقاذ البشرية.',
         careers: ['طبيب عام في المشافي', 'باحث سريري وأكاديمي', 'تخصص زمالة دقيقة'],
         icon: Activity,
@@ -90,7 +85,6 @@ const collegesData = [
         id: 'dentistry',
         name: 'طب وجراحة الفم والأسنان',
         duration: 5, 
-        creditHours: 180,
         description: 'علاج ورعاية وتجميل الأسنان واللثة وجراحة الوجه والفكين بأحدث التقنيات الطبية.',
         careers: ['طبيب أسنان متخصص', 'جراح وجه وفكين', 'إخصائي تجميل أسنان'],
         icon: Activity,
@@ -100,21 +94,19 @@ const collegesData = [
         id: 'labs',
         name: 'المختبرات الطبية',
         duration: 4, 
-        creditHours: 140,
         description: 'تحليل العينات الطبية والمساعدة في تشخيص الأمراض ببيولوجيا الجزيئات والتحاليل الدقيقة.',
         careers: ['أخصائي تحاليل طبية', 'باحث في بنك الدم', 'محلل جينات مخبري'],
         icon: Activity,
-        path: '/departments/medicine?tab=labs' // تم تصليحه ليوجه لكلية الطب بتبويب المختبرات
+        path: '/departments/medicine?tab=labs'
       },
       {
         id: 'nursing',
         name: 'التمريض',
         duration: 4,
-        creditHours: 136,
         description: 'تقديم الرعاية الصحية التمريضية الطارئة والدورية للمرضى في غرف العناية والمشافي.',
         careers: ['ممرض قانوني متخصص', 'مشرف رعاية صحية أولية', 'أخصائي طوارئ'],
         icon: Activity,
-        path: '/departments/medicine?tab=nursing' // تم تصليحه ليوجه لكلية الطب بتبويب التمريض فوراً!
+        path: '/departments/medicine?tab=nursing'
       }
     ]
   },
@@ -130,7 +122,6 @@ const collegesData = [
         id: 'bba',
         name: 'إدارة الأعمال',
         duration: 4,
-        creditHours: 132,
         description: 'دراسة استراتيجيات القيادة، الهيكلة التنظيمية للشركات، وإدارة الموارد البشرية واللوجستية.',
         careers: ['مدير تنفيذي ومستشار', 'رائد أعمال خاص', 'محلل تطوير إداري'],
         icon: Building2,
@@ -140,7 +131,6 @@ const collegesData = [
         id: 'accounting',
         name: 'المحاسبة',
         duration: 4,
-        creditHours: 130,
         description: 'تدقيق الحسابات المالية، إعداد التقارير الضريبية، ومراقبة الميزانيات للكيانات التجارية والحكومية.',
         careers: ['محاسب قانوني معتمد', 'مدقق مالي داخلي', 'مستشار ضرائب وميزانيات'],
         icon: Building2,
@@ -150,7 +140,6 @@ const collegesData = [
         id: 'finance',
         name: 'العلوم المالية والمصرفية',
         duration: 4,
-        creditHours: 134,
         description: 'تحليل الاستثمار، إدارة المحافظ البنية، ونظم البنوك الرقمية وإدارة المخاطر النقدية.',
         careers: ['محلل مالي واستثماري', 'إخصائي ائتمان مصرفي', 'مخطط ثروات واستثمار'],
         icon: Building2,
@@ -170,7 +159,6 @@ const collegesData = [
         id: 'law-sharia',
         name: 'الشريعة والقانون',
         duration: 4,
-        creditHours: 140,
         description: 'دراسة الفقه الموحد، القوانين الدستورية والجنائية والمدنية، وإعداد الكوادر القضائية والحقوقية.',
         careers: ['محامٍ معتمد ومستشار', 'قاضٍ أو معاون قضائي', 'أخصائي صياغة عقود'],
         icon: Scale,
@@ -181,6 +169,7 @@ const collegesData = [
 ];
 
 export default function DepartmentsPortal() {
+  const t = useTranslations('DepartmentsPortal');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
 
@@ -193,9 +182,21 @@ export default function DepartmentsPortal() {
         return null;
       }
 
-      const matchedDeps = college.departments.filter(dep => 
-        dep.name.includes(searchTerm) || dep.description.includes(searchTerm)
-      );
+      const collegeName = t(`colleges.${college.id}`) || college.name;
+
+      const matchedDeps = college.departments.filter(dep => {
+        const depName = t(`departments.${dep.id}.name`) || dep.name;
+        const depDesc = t(`departments.${dep.id}.description`) || dep.description;
+        const q = searchTerm.toLowerCase();
+
+        return (
+          depName.toLowerCase().includes(q) || 
+          depDesc.toLowerCase().includes(q) ||
+          collegeName.toLowerCase().includes(q) ||
+          dep.name.toLowerCase().includes(q) ||
+          dep.description.toLowerCase().includes(q)
+        );
+      });
 
       if (matchedDeps.length === 0) return null;
 
@@ -217,14 +218,14 @@ export default function DepartmentsPortal() {
       <div className="max-w-[1400px] w-full mx-auto px-4 py-8 relative z-10 flex-grow space-y-8">
         
         <div className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2">
+          <div className="space-y-2 text-right">
             <div className="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-wider">
               <Sparkles className="w-4 h-4" />
-              <span>البوابة التعليمية الذكية لجامعة إب</span>
+              <span>{t('badge')}</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">دليل الكليات والتخصصات الأكاديمية</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{t('title')}</h1>
             <p className="text-xs text-slate-500 font-bold max-w-xl leading-relaxed">
-              تصفح الأقسام العلمية، تعرف على خططها الدراسية وسنوات رصدها، والفرص والمسارات المهنية الواعدة لكل تخصص أكاديمي.
+              {t('subtitle')}
             </p>
           </div>
 
@@ -232,14 +233,14 @@ export default function DepartmentsPortal() {
             <div className="bg-[#0A2540] text-white border border-white/10 rounded-2xl p-4 flex items-center gap-3 shadow-md">
               <div className="p-2 bg-white/10 rounded-xl"><GraduationCap className="w-5 h-5 text-sky-400" /></div>
               <div>
-                <p className="text-[10px] font-bold text-slate-300">إجمالي الكليات</p>
+                <p className="text-[10px] font-bold text-slate-300">{t('totalColleges')}</p>
                 <p className="text-base font-black text-white">{totalColleges}</p>
               </div>
             </div>
             <div className="bg-white/80 border border-slate-200/60 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
               <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><Award className="w-5 h-5" /></div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400">التخصصات المتاحة</p>
+                <p className="text-[10px] font-bold text-slate-400">{t('totalDepartments')}</p>
                 <p className="text-base font-black text-indigo-600">{totalDepartments}</p>
               </div>
             </div>
@@ -251,8 +252,8 @@ export default function DepartmentsPortal() {
             <Search className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
             <input 
               type="text"
-              placeholder="ابحث عن تخصص أكاديمي، مهارة، أو نبذة معينة..."
-              className="w-full pl-4 pr-10 py-3 border border-slate-200/60 rounded-2xl text-xs bg-white/90 font-semibold focus:outline-none focus:border-indigo-500 shadow-sm transition-all placeholder:text-slate-400"
+              placeholder={t('searchPlaceholder')}
+              className="w-full pl-4 pr-10 py-3 border border-slate-200/60 rounded-2xl text-xs bg-white/90 font-semibold focus:outline-none focus:border-indigo-500 shadow-sm transition-all placeholder:text-slate-400 text-right"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -267,7 +268,7 @@ export default function DepartmentsPortal() {
                   : 'bg-white/80 border-slate-200 hover:bg-slate-50 text-slate-600'
               }`}
             >
-              الكل
+              {t('filterAll')}
             </button>
             {collegesData.map(college => (
               <button 
@@ -279,7 +280,7 @@ export default function DepartmentsPortal() {
                     : 'bg-white/80 border-slate-200 hover:bg-slate-50 text-slate-600'
                 }`}
               >
-                {college.name.replace('كلية ', '')}
+                {(t(`colleges.${college.id}`) || college.name).replace('كلية ', '').replace('Faculty of ', '')}
               </button>
             ))}
           </div>
@@ -296,15 +297,17 @@ export default function DepartmentsPortal() {
                     college.theme === 'emerald' ? 'bg-emerald-600' :
                     college.theme === 'amber' ? 'bg-amber-600' : 'bg-purple-600'
                   }`} />
-                  <h2 className="text-base font-black text-slate-900">{college.name}</h2>
+                  <h2 className="text-base font-black text-slate-900">{t(`colleges.${college.id}`) || college.name}</h2>
                   <span className="text-[10px] font-mono bg-white/60 text-slate-400 border px-2.5 py-0.5 rounded-full font-bold">
-                    عدد الأقسام: {college.departments.length}
+                    {t('departmentCount')} {college.departments.length}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {college.departments.map(dep => {
                     const DepIcon = dep.icon;
+                    const depCareers = (t.raw(`departments.${dep.id}.careers`) as string[]) || dep.careers;
+
                     return (
                       <div 
                         key={dep.id}
@@ -321,31 +324,27 @@ export default function DepartmentsPortal() {
                             <div className="flex items-center gap-1.5 select-none">
                               <div className="flex items-center gap-1 text-[10px] font-black bg-slate-950 text-white px-2.5 py-1 rounded-full shadow-sm">
                                 <Clock className="w-3 h-3 text-sky-400" />
-                                <span>{dep.duration} {dep.duration === 7 ? 'سنوات' : dep.duration === 5 ? 'سنوات' : 'سنوات'}</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-[10px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 px-2.5 py-1 rounded-full">
-                                <BookOpen className="w-3 h-3" />
-                                <span>{dep.creditHours} ساعة</span>
+                                <span>{dep.duration} {t('years')}</span>
                               </div>
                             </div>
                           </div>
 
                           <div className="space-y-1.5 text-right">
                             <h3 className="font-black text-sm text-slate-900 tracking-wide group-hover/card:text-indigo-600 transition-colors">
-                              {dep.name}
+                              {t(`departments.${dep.id}.name`) || dep.name}
                             </h3>
                             <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-                              {dep.description}
+                              {t(`departments.${dep.id}.description`) || dep.description}
                             </p>
                           </div>
 
                           <div className="pt-3 border-t border-slate-100 space-y-2 text-right">
                             <div className="flex items-center gap-1 text-[10px] font-black text-slate-400 select-none">
                               <Briefcase className="w-3.5 h-3.5" />
-                              <span>مجالات العمل المتوقعة للخريج:</span>
+                              <span>{t('careerFields')}</span>
                             </div>
                             <div className="flex flex-wrap gap-1">
-                              {dep.careers.map((career, cIdx) => (
+                              {depCareers.map((career, cIdx) => (
                                 <span 
                                   key={cIdx}
                                   className="text-[9px] font-black bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200/60 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
@@ -362,7 +361,7 @@ export default function DepartmentsPortal() {
                             href={dep.path}
                             className="text-[10px] font-black text-[#0A2540] bg-white border border-slate-200 hover:border-indigo-500 hover:text-indigo-600 px-4 py-2.5 rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer hover:shadow"
                           >
-                            <span>عرض الخطط الدراسية والمناهج</span>
+                            <span>{t('viewPlansBtn')}</span>
                             <ArrowLeft className="w-3.5 h-3.5" />
                           </Link>
                         </div>
@@ -374,8 +373,8 @@ export default function DepartmentsPortal() {
             ))
           ) : (
             <div className="text-center py-20 text-slate-400 font-bold text-xs select-none space-y-2 border border-dashed border-slate-300 rounded-3xl bg-white/40">
-              <p>📭 لا توجد نتائج مطابقة لبحثك الحالي.</p>
-              <p className="text-[11px] text-slate-400 font-medium">تأكد من كتابة الكلمات بشكل صحيح أو قم بتغيير فلاتر الكليات لليمين.</p>
+              <p>{t('noResultsTitle')}</p>
+              <p className="text-[11px] text-slate-400 font-medium">{t('noResultsDesc')}</p>
             </div>
           )}
         </div>

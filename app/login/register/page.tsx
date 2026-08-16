@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
 
 export default function RegisterHubPage() {
   const router = useRouter();
+  const t = useTranslations('RegisterHub');
   
   // حالات التحكم بالتصميم والخطوات
   const [hoveredRole, setHoveredRole] = useState<'student' | 'faculty' | null>(null);
@@ -29,7 +31,7 @@ export default function RegisterHubPage() {
     const lockoutUntil = localStorage.getItem('reg_lockout_until');
     if (lockoutUntil && Date.now() < parseInt(lockoutUntil)) {
       const timeLeft = Math.ceil((parseInt(lockoutUntil) - Date.now()) / 1000 / 60);
-      setNotification(`🚨 محاولاتك محظورة مؤقتاً لحماية السيرفر. يرجى الانتظار ${timeLeft} دقيقة.`);
+      setNotification(t('errLockout', { minutes: timeLeft }));
       setIsLoading(false);
       return;
     }
@@ -39,7 +41,7 @@ export default function RegisterHubPage() {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(cleanEmail)) {
-      setNotification("⚠️ يرجى إدخال بريد إلكتروني صحيح.");
+      setNotification(t('errInvalidEmail'));
       setIsLoading(false);
       return;
     }
@@ -54,13 +56,13 @@ export default function RegisterHubPage() {
       const blockTime = Date.now() + 15 * 60 * 1000;
       localStorage.setItem('reg_lockout_until', blockTime.toString());
       localStorage.setItem('reg_attempts', '0'); 
-      setNotification("🚨 تم حظر عملياتك لمدة 15 دقيقة بسبب تجاوز الحد المسموح.");
+      setNotification(t('errMaxAttempts'));
       setIsLoading(false);
       return;
     }
 
     try {
-      setNotification("🔍 جاري فحص السجلات الموحدة لحسابات المستخدمين...");
+      setNotification(t('checkingRecords'));
 
       // 3️⃣ [منع التكرار القاطع]: الفحص في جدول الحسابات المركزي user_accounts فقط بناءً على المخطط
       const { data: accountCheck, error: accountErr } = await supabase
@@ -71,17 +73,17 @@ export default function RegisterHubPage() {
 
       if (accountErr) {
         console.error("🚨 خطأ سوبابيز:", accountErr.message);
-        throw new Error("حدث عطل أثناء فحص الحسابات، يرجى التحقق من اتصال الداتابيز.");
+        throw new Error(t('errDatabase'));
       }
 
       // إذا وُجد الحساب بالإيميل (سواء مقبولApproved أو معلقPending) يتم حظره فوراً
       if (accountCheck) {
-        setNotification("⚠️ هذا البريد الإلكتروني مسجل بالفعل في المنظومة (طلبك قيد المعالجة أو مقبول سابقاً)! توجه لتسجيل الدخول.");
+        setNotification(t('errEmailExists'));
         setIsLoading(false);
         return;
       }
 
-      setNotification("📩 جاري توليد رمز التحقق الرقمي وتأمين الرابط...");
+      setNotification(t('generatingCode'));
       
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       
@@ -103,30 +105,29 @@ export default function RegisterHubPage() {
       });
 
       if (!response.ok) {
-        throw new Error("فشل إرسال الإيميل عبر السيرفر");
+        throw new Error(t('errSendEmail'));
       }
 
       // حفظ البريد مؤقتاً في الكاش
       localStorage.setItem('temp_reg_email', cleanEmail);
       localStorage.removeItem('reg_attempts');
       
-      setNotification("✅ تم إرسال الرمز بنجاح! جاري التوجيه لبوابة التحقق...");
+      setNotification(t('successSent'));
       
       router.push(`/login/register/code?role=${selectedRole}`); 
 
     } catch (err: any) {
       console.error(err);
-      setNotification(err.message || "🚨 حدث خطأ غير متوقع أثناء الاتصال بالسيرفر.");
+      setNotification(err.message || t('errGeneric'));
       setIsLoading(false);
     }
   };
-
 
   // تحديد اللون الحالي بناءً على حركة الماوس أو الكارت الذي تم اختياره
   const activeTheme = selectedRole || hoveredRole;
 
   return (
-    <div className="bg-[#04060a] text-slate-200 min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-6" dir="rtl">
+    <div className="bg-[#04060a] text-slate-200 min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-6">
       
       {/* شبكة النيون الخلفية المستقبلية */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-30 z-0" />
@@ -158,13 +159,13 @@ export default function RegisterHubPage() {
             <div className="text-center mb-12 select-none">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-400 mb-4 tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                بوابة تسجيل الحسابات المركزية الموحدة
+                {t('badge')}
               </div>
               <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400 tracking-tight sm:text-4xl">
-                انضم الآن إلى منظومة جامعة إب الذكية
+                {t('title')}
               </h2>
               <p className="text-sm text-slate-400 mt-3 max-w-md mx-auto leading-relaxed">
-                اختر طبيعة حسابك الأكاديمي لبدء إجراءات التحقق الرقمية وربط ملفك بالسيرفر المركزي.
+                {t('subtitle')}
               </p>
             </div>
 
@@ -178,16 +179,16 @@ export default function RegisterHubPage() {
                 onClick={() => setSelectedRole('student')}
                 className="group relative bg-[#090f1c]/40 backdrop-blur-2xl border border-slate-800/80 rounded-[28px] p-8 cursor-pointer overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:border-emerald-500/40 shadow-[0_15px_35px_rgba(0,0,0,0.4)] hover:shadow-[0_20px_40px_rgba(16,185,129,0.1)]"
               >
-                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl transition-all group-hover:scale-150" />
+                <div className="absolute top-0 end-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl transition-all group-hover:scale-150" />
                 <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-6 shadow-inner group-hover:bg-emerald-500 group-hover:text-black transition-all duration-500">
                   <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z"/><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
                 </div>
                 <h4 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                  حساب طالب جديد
-                  <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">فوري</span>
+                  {t('studentTitle')}
+                  <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">{t('instantBadge')}</span>
                 </h4>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  خاص بالطلاب المقيدين في كليات جامعة إب للولوج للمكتبة الذكية، تسليم التكاليف ومتابعة شؤون الطلاب الفورية.
+                  {t('studentDesc')}
                 </p>
               </div>
 
@@ -198,16 +199,16 @@ export default function RegisterHubPage() {
                 onClick={() => setSelectedRole('faculty')}
                 className="group relative bg-[#090f1c]/40 backdrop-blur-2xl border border-slate-800/80 rounded-[28px] p-8 cursor-pointer overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:border-blue-500/40 shadow-[0_15px_35px_rgba(0,0,0,0.4)] hover:shadow-[0_20px_40px_rgba(59,130,246,0.1)]"
               >
-                <div className="absolute top-0 left-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl transition-all group-hover:scale-150" />
+                <div className="absolute top-0 start-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl transition-all group-hover:scale-150" />
                 <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-6 shadow-inner group-hover:bg-blue-500 group-hover:text-black transition-all duration-500">
                   <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 0 1 8 0z"/></svg>
                 </div>
                 <h4 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                  حساب كادر أكاديمي
-                  <span className="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">يتطلب مراجعة</span>
+                  {t('facultyTitle')}
+                  <span className="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">{t('reviewBadge')}</span>
                 </h4>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  خاص بأعضاء هيئة التدريس، الدكاترة، والمعيدين لإدارة المناهج، رصد الدرجات إلكترونياً، والتحكم بالصلاحيات العليا.
+                  {t('facultyDesc')}
                 </p>
               </div>
 
@@ -215,15 +216,19 @@ export default function RegisterHubPage() {
 
             {/* روابط العودة التحتية */}
             <div className="mt-10 text-center text-xs select-none">
-              <span className="text-slate-500">لديك حساب بالفعل؟ </span>
-              <Link href="/login/student" className="text-slate-300 font-bold hover:text-white underline transition-colors mx-1">تسجيل دخول الطلاب</Link>
+              <span className="text-slate-500">{t('haveAccount')} </span>
+              <Link href="/login/student" className="text-slate-300 font-bold hover:text-white underline transition-colors mx-1">
+                {t('studentLoginLink')}
+              </Link>
               <span className="text-slate-600">|</span>
-              <Link href="/login/academic" className="text-slate-300 font-bold hover:text-white underline transition-colors mx-1">تسجيل دخول الأكاديميين</Link>
+              <Link href="/login/academic" className="text-slate-300 font-bold hover:text-white underline transition-colors mx-1">
+                {t('academicLoginLink')}
+              </Link>
             </div>
           </>
         ) : (
           
-          // ================= الخطوة الثانية: إدخل البريد والتحقق والمنع الصارم =================
+          // ================= الخطوة الثانية: إدخال البريد والتحقق والمنع الصارم =================
           <div className="w-full max-w-[460px] animate-[fadeIn_0.4s_ease-out]">
             
             {/* زر العودة لتغيير الرتبة */}
@@ -231,8 +236,8 @@ export default function RegisterHubPage() {
               onClick={() => { setSelectedRole(null); setNotification(null); }}
               className="mb-5 inline-flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white transition-colors bg-slate-900/60 border border-slate-800 px-3 py-1.5 rounded-xl backdrop-blur-md"
             >
-              <svg className="w-4 h-4 rotate-180" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
-              تغيير نوع الحساب
+              <svg className="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+              {t('changeRoleBtn')}
             </button>
 
             {/* صندوق النموذج الكريستالي الفخم المطور */}
@@ -242,15 +247,15 @@ export default function RegisterHubPage() {
               
               <div className="text-center mb-8">
                 <h3 className="text-xl font-bold text-slate-100 select-none">
-                  {selectedRole === 'student' ? 'إنشاء حساب طالب جديد' : 'إنشاء حساب أكاديمي جديد'}
+                  {selectedRole === 'student' ? t('studentFormTitle') : t('facultyFormTitle')}
                 </h3>
-                <p className="text-xs text-slate-400 mt-2">الخطوة 1: التحقق من الهوية الجامعية الرسمية</p>
+                <p className="text-xs text-slate-400 mt-2">{t('step1Subtitle')}</p>
               </div>
 
               <form onSubmit={handleEmailSubmit} className="space-y-6">
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-2.5 mr-1 select-none">
-                    البريد الإلكتروني الجامعي المعتمد
+                  <label className="block text-xs font-medium text-slate-400 mb-2.5 px-1 select-none">
+                    {t('emailLabel')}
                   </label>
                   <input 
                     type="email"
@@ -261,7 +266,7 @@ export default function RegisterHubPage() {
                         ? 'border-slate-800/80 focus:ring-emerald-500/40 focus:border-emerald-500/50' 
                         : 'border-slate-800/80 focus:ring-blue-500/40 focus:border-blue-500/50'
                     }`}
-                    placeholder="example@ib-univ.edu.ye"
+                    placeholder={t('emailPlaceholder')}
                     required
                   />
                 </div>
@@ -281,9 +286,9 @@ export default function RegisterHubPage() {
                   {isLoading ? (
                     <span className="flex items-center justify-center gap-2">
                       <svg className="animate-spin h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
-                      جاري الفحص وبناء الجدار الأمني...
+                      {t('submitting')}
                     </span>
-                  ) : "إرسال رمز التفعيل الرقمي"}
+                  ) : t('submitBtn')}
                 </button>
               </form>
 
@@ -291,7 +296,7 @@ export default function RegisterHubPage() {
                 <Link href="/login" className={`font-bold hover:underline transition-colors ${
                   selectedRole === 'student' ? 'text-emerald-400' : 'text-blue-400'
                 }`}>
-                  إلغاء والعودة لشاشة الدخول
+                  {t('cancelLink')}
                 </Link>
               </div>
 

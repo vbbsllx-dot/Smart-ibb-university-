@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -12,7 +13,6 @@ import {
   Pencil
 } from 'lucide-react';
 
-// 📌 إضافات أعلى ملف ResourceCarousel.tsx لإنهاء الخطأ
 const departmentNamesMap: { [key: string | number]: string } = {
   1: 'هندسة الحاسبات والتحكم', 2: 'الهندسة المدنية', 3: 'الهندسة المعمارية', 4: 'هندسة الاتصالات',
   5: 'الطب البشري', 6: 'المختبرات الطبية', 7: 'التمريض', 8: 'طب وجراحة الفم والأسنان',
@@ -42,6 +42,8 @@ export default function ResourceCarousel({
   setPreviewType,
   router
 }: ResourceCarouselProps) {
+  const t = useTranslations('ResourceCarousel');
+  const tGlobal = useTranslations('RegistrationDetails');
 
   // 🟢 حالة خاصة بمؤشر المرجع المعروض حالياً بمنتصف الكاروسيل
   const [carouselIndex, setCarouselIndex] = useState<number>(0);
@@ -93,11 +95,11 @@ export default function ResourceCarousel({
     <section className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl shadow-sm overflow-hidden print:hidden relative">
       
       {/* 🏛️ ترويسة الأرشيف مع إظهار تفاصيل المادة المعروضة بمنتصف الكاروسيل ديناميكياً */}
-      <div className="bg-white/80 border-b border-slate-200/60 px-6 py-4 flex items-center justify-between z-30 relative dir-rtl text-right flex-wrap gap-2">
+      <div className="bg-white/80 border-b border-slate-200/60 px-6 py-4 flex items-center justify-between z-30 relative flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-3.5 rounded-full bg-[#00bc7e]" />
           <h3 className="text-xs font-black text-[#062c35]">
-            أرشيف المواد والمراجع الأكاديمية 
+            {t('archiveTitle')} 
           </h3>
         </div>
 
@@ -105,32 +107,32 @@ export default function ResourceCarousel({
         {activeDisplayResource ? (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="bg-[#00bc7e]/15 text-[#059669] border border-[#00bc7e]/30 px-3 py-1 rounded-xl text-xs font-black">
-              📚 المادة: {activeDisplayResource.title}
+              {t('coursePrefix')} {activeDisplayResource.title}
             </span>
 
             <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-xl text-[11px] font-bold">
-              🏢 {departmentNamesMap[Number(activeDisplayResource.dept_id || activeDisplayResource.dep_id)] || "القسم العلمي"}
+              🏢 {tGlobal(`departments.${activeDisplayResource.dept_id || activeDisplayResource.dep_id}` as any) || departmentNamesMap[Number(activeDisplayResource.dept_id || activeDisplayResource.dep_id)] || t('defaultDept')}
             </span>
 
             <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-xl text-[11px] font-bold">
-              🎓 {levelNamesMap[Number(activeDisplayResource.level_id)] || `المستوى ${activeDisplayResource.level_id}`}
+              🎓 {tGlobal(`levels.${activeDisplayResource.level_id}` as any) || levelNamesMap[Number(activeDisplayResource.level_id)] || `${t('levelPrefix')} ${activeDisplayResource.level_id}`}
             </span>
           </div>
         ) : (
           <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-100">
-            لم يتم تحديد مادة حالياً
+            {t('noResourceSelected')}
           </span>
         )}
 
         <span className="text-[10px] font-mono bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full border border-indigo-100 font-bold">
-          العدد: {myResources.length}
+          {t('countLabel')} {myResources.length}
         </span>
       </div>
 
       {/* المسرح ثلاثي الأبعاد */}
       <div className="w-full h-[270px] flex items-center justify-center [perspective:1400px] overflow-hidden relative bg-slate-50/50 select-none py-4">
 
-        {/* 🏹 السهم الأيمن: تحريك الكاروسيل بصرياً دون تفريغ جدول الطلاب */}
+        {/* 🏹 السهم الأيمن */}
         <button 
           type="button"
           onClick={() => {
@@ -139,12 +141,12 @@ export default function ResourceCarousel({
               setCarouselIndex((prev) => (prev - 1 + myResources.length) % myResources.length);
             }
           }}
-          className="absolute right-6 z-40 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+          className="absolute end-6 z-40 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-4 h-4 rtl:rotate-180" />
         </button>
 
-        {/* 🏹 السهم الأيسر: تحريك الكاروسيل بصرياً دون تفريغ جدول الطلاب */}
+        {/* 🏹 السهم الأيسر */}
         <button 
           type="button"
           onClick={() => {
@@ -153,9 +155,9 @@ export default function ResourceCarousel({
               setCarouselIndex((prev) => (prev + 1) % myResources.length);
             }
           }}
-          className="absolute left-6 z-40 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+          className="absolute start-6 z-40 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
         </button>
 
         {/* الحلقة الدوارة */}
@@ -197,7 +199,7 @@ export default function ResourceCarousel({
               } else {
                 cardStyle = {
                   transform: `rotateY(${-idx * anglePerItem}deg) translateZ(280px) scale(0.7)`,
-                  opacity: 0,
+                  opacity: 0, 
                   zIndex: 10,
                   pointerEvents: 'none' as const
                 };
@@ -264,7 +266,7 @@ export default function ResourceCarousel({
                               setPreviewType(res.resource_type);
                             }}
                             className="p-1.5 rounded-xl bg-slate-900/80 hover:bg-indigo-600 text-white border border-white/20 backdrop-blur-xl shadow-lg transition-all active:scale-90"
-                            title="معاينة زجاجية فورية"
+                            title={t('previewTooltip')}
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
@@ -278,7 +280,7 @@ export default function ResourceCarousel({
                               router.push(`/faculty/upload?edit=true&id=${res.id}&title=${encodeURIComponent(res.title)}&type=${res.resource_type}&dept=${res.dept_id}&level=${res.level_id}`);
                             }}
                             className="p-1.5 rounded-xl bg-slate-900/80 hover:bg-sky-600 text-white border border-white/20 backdrop-blur-xl shadow-lg transition-all active:scale-90"
-                            title="تعديل المادة"
+                            title={t('editTooltip')}
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -288,7 +290,7 @@ export default function ResourceCarousel({
                             type="button"
                             onClick={(e) => onDeleteResource(res.id, e)}
                             className="p-1.5 rounded-xl bg-slate-900/80 hover:bg-rose-600 text-white border border-white/20 backdrop-blur-xl shadow-lg transition-all active:scale-90"
-                            title="حذف الملف"
+                            title={t('deleteTooltip')}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -297,12 +299,12 @@ export default function ResourceCarousel({
                     </div>
 
                     {/* الشريط السفلي الأنيق لعنوان المادة */}
-                    <div className="p-3 bg-[#090f1c]/95 border-t border-white/10 w-full text-right rounded-b-2xl shadow-2xl relative z-20 backdrop-blur-md">
+                    <div className="p-3 bg-[#090f1c]/95 border-t border-white/10 w-full text-start rounded-b-2xl shadow-2xl relative z-20 backdrop-blur-md">
                       <h4 className="font-black text-xs text-white line-clamp-1 tracking-wide">
                         {res.title}
                       </h4>
                       <p className="text-[9.5px] text-indigo-300 font-bold mt-0.5 truncate">
-                        {departmentNamesMap[Number(res.dept_id)] || departmentNamesMap[res.dept_id]}
+                        {tGlobal(`departments.${res.dept_id || res.dep_id}` as any) || departmentNamesMap[Number(res.dept_id || res.dep_id)]}
                       </p>
                     </div>
 
@@ -311,7 +313,9 @@ export default function ResourceCarousel({
               );
             })
           ) : (
-            <div className="text-center text-slate-400 font-bold text-xs [transform:translateZ(0)]">📭 لا يوجد محاضرات لعرضها حالياً.</div>
+            <div className="text-center text-slate-400 font-bold text-xs [transform:translateZ(0)]">
+              {t('noLectures')}
+            </div>
           )}
         </div>
       </div>

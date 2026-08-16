@@ -4,11 +4,13 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
 
 function AcademicLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations('AcademicLogin');
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -46,30 +48,30 @@ function AcademicLoginContent() {
         .single();
 
       if (error || !user) {
-        triggerError("⚠️ خطأ: الرمز الأكاديمي أو اسم المستخدم غير مقيد بالمنظومة.");
+        triggerError(t('errNotFound'));
         return;
       }
 
       if (user.role !== 'instructor') {
-        triggerError("❌ خطأ: هذا الحساب غير مصادق عليه كعضو هيئة تدريس.");
+        triggerError(t('errRole'));
         return;
       }
 
       if (user.password_hash !== password) {
-        triggerError("🔑 خطأ: الرمز السري أو كلمة المرور غير مطابقة، أعد المحاولة.");
+        triggerError(t('errPassword'));
         return;
       }
 
       if (user.status === 'pending') {
-        triggerError("⏳ تنبيه: حسابك قيد المراجعة من قِبل عمادة الكلية.");
+        triggerError(t('errPending'));
         return;
       } else if (user.status === 'rejected') {
-        triggerError("❌ معذرة: تم رفض طلب انضمامك للمنظومة من قِبل الإدارة.");
+        triggerError(t('errRejected'));
         return;
       }
 
       const targetPath = destination || '/faculty/dashboard';
-      setNotification("أهلاً يا دكتور.. تم منح صلاحيات الهيئة التدريسية بنجاح");
+      setNotification(t('successLogin'));
       
       localStorage.setItem('university_username', username.trim());
       if (rememberMe) {
@@ -79,33 +81,38 @@ function AcademicLoginContent() {
       setTimeout(() => router.push(targetPath), 1200);
 
     } catch (err) {
-      triggerError("🚨 حدث خطأ أثناء الاتصال بالخوادم المركزية.");
+      triggerError(t('errServer'));
     }
   };
 
   return (
-    <div className="bg-[#050811] text-slate-200 min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-4 sm:p-6" dir="rtl">
+    <div className="bg-[#050811] text-slate-200 min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-4 sm:p-6">
       
       {/* 🏠 زر الرجوع للواجهة الرئيسية */}
       <Link 
         href="/" 
-        className="absolute top-6 right-6 z-30 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#090f1c]/80 hover:bg-[#111a2e] border border-slate-800 hover:border-blue-500/40 text-slate-300 hover:text-blue-400 text-xs font-bold transition-all duration-300 backdrop-blur-xl shadow-lg select-none group"
+        className="absolute top-6 start-6 z-30 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#090f1c]/80 hover:bg-[#111a2e] border border-slate-800 hover:border-blue-500/40 text-slate-300 hover:text-blue-400 text-xs font-bold transition-all duration-300 backdrop-blur-xl shadow-lg select-none group"
       >
         <svg className="w-4 h-4 transform group-hover:rotate-12 transition-transform text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
-        <span>الرجوع للرئيسية</span>
+        <span>{t('backHome')}</span>
       </Link>
 
       <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.02)_0%,transparent_70%)]" />
-      <div className="absolute w-[450px] h-[450px] rounded-full blur-[140px] bottom-[-10%] left-[-5%] bg-blue-500/[0.04]" />
+      <div className="absolute w-[450px] h-[450px] rounded-full blur-[140px] bottom-[-10%] start-[-5%] bg-blue-500/[0.04]" />
 
       {/* التوست التنبيهي */}
       {notification && (
         <div className="fixed top-6 max-w-[400px] w-[90%] px-5 py-4 rounded-2xl border backdrop-blur-3xl z-50 shadow-2xl bg-blue-950/90 border-blue-500/30 text-blue-300 flex items-center gap-3.5 animate-in fade-in slide-in-from-top-4">
-          <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-current"></span></span>
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-current"></span>
+          </span>
           <p className="text-xs font-bold flex-1">{notification}</p>
-          <button type="button" onClick={() => setNotification(null)} className="text-[11px] opacity-50 hover:opacity-100 px-2 py-1 rounded-lg bg-white/5">إغلاق</button>
+          <button type="button" onClick={() => setNotification(null)} className="text-[11px] opacity-50 hover:opacity-100 px-2 py-1 rounded-lg bg-white/5">
+            {t('close')}
+          </button>
         </div>
       )}
 
@@ -144,31 +151,57 @@ function AcademicLoginContent() {
         </div>
 
         <div className="text-center mb-7 select-none">
-          <h3 className="text-xl font-extrabold text-white">بوابة الكادر الأكاديمي</h3>
-          <p className="text-[11px] text-slate-400 mt-1.5 opacity-80">جامعة إب - منصة أعضاء هيئة التدريس وإدارة الموارد</p>
+          <h3 className="text-xl font-extrabold text-white">{t('title')}</h3>
+          <p className="text-[11px] text-slate-400 mt-1.5 opacity-80">{t('subtitle')}</p>
         </div>
 
         <form onSubmit={handleLoginSubmit} className="space-y-5">
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-2 mr-1">الحساب أو البريد الأكاديمي</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-2 px-1">{t('usernameLabel')}</label>
             <div className="relative flex items-center">
-              <div className="absolute right-4 text-slate-500"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg></div>
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} onFocus={() => setIsUsernameFocused(true)} onBlur={() => setIsUsernameFocused(false)} className="w-full bg-[#04070d]/90 border border-slate-800/80 rounded-2xl pr-11 pl-4 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition-all duration-300 focus:ring-4 focus:border-blue-500/60 focus:ring-blue-500/10" placeholder="academic@uibb.edu.ye" required />
+              <div className="absolute start-4 text-slate-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
+              </div>
+              <input 
+                type="text" 
+                value={username} 
+                onChange={(e) => setUsername(e.target.value)} 
+                onFocus={() => setIsUsernameFocused(true)} 
+                onBlur={() => setIsUsernameFocused(false)} 
+                className="w-full bg-[#04070d]/90 border border-slate-800/80 rounded-2xl ps-11 pe-4 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition-all duration-300 focus:ring-4 focus:border-blue-500/60 focus:ring-blue-500/10" 
+                placeholder={t('usernamePlaceholder')} 
+                required 
+              />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-2 mr-1">شفرة العبور الأمنية</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-2 px-1">{t('passwordLabel')}</label>
             <div className="relative flex items-center">
-              <div className="absolute right-4 text-slate-500"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg></div>
-              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} onFocus={() => setIsPasswordFocused(true)} onBlur={() => setIsPasswordFocused(false)} className="w-full bg-[#04070d]/90 border border-slate-800/80 rounded-2xl pr-11 pl-12 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition-all duration-300 focus:ring-4 focus:border-blue-500/60 focus:ring-blue-500/10" placeholder="••••••••••••" required />
+              <div className="absolute start-4 text-slate-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+              </div>
+              <input 
+                type={showPassword ? "text" : "password"} 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                onFocus={() => setIsPasswordFocused(true)} 
+                onBlur={() => setIsPasswordFocused(false)} 
+                className="w-full bg-[#04070d]/90 border border-slate-800/80 rounded-2xl ps-11 pe-12 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition-all duration-300 focus:ring-4 focus:border-blue-500/60 focus:ring-blue-500/10" 
+                placeholder={t('passwordPlaceholder')} 
+                required 
+              />
               
               {/* 👁️ زر العين لإظهار وإخفاء كلمة المرور */}
               <button 
                 type="button" 
                 onClick={() => setShowPassword(!showPassword)} 
-                className="absolute left-4 text-slate-500 hover:text-blue-400 transition-colors p-1 select-none"
-                title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                className="absolute end-4 text-slate-500 hover:text-blue-400 transition-colors p-1 select-none"
+                title={showPassword ? t('hidePassword') : t('showPassword')}
               >
                 {showPassword ? (
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -192,21 +225,34 @@ function AcademicLoginContent() {
                 onChange={(e) => setRememberMe(e.target.checked)} 
                 className="rounded bg-slate-950 border-slate-800 accent-blue-500 cursor-pointer" 
               />
-              <span className="group-hover:text-slate-300">تذكر بياناتي المشفرة</span>
+              <span className="group-hover:text-slate-300">{t('rememberMe')}</span>
             </label>
             <Link href="/login/register" className="hover:text-blue-400 font-semibold transition-colors">
-              استعادة رمز المرور؟
+              {t('forgotPassword')}
             </Link>
           </div>
 
-          <button type="submit" disabled={isLoading} className="w-full text-white font-bold py-4 px-4 rounded-2xl text-sm transition-all duration-300 active:scale-[0.98] mt-4 shadow-xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:shadow-[0_0_25px_rgba(59,130,246,0.3)] flex items-center justify-center gap-2.5 group select-none">
-            {isLoading ? <span>جاري المصادقة الأمنية...</span> : <><span>الولوج الآمن للمنظومة</span><span className="transform group-hover:-translate-x-1 transition-transform">←</span></>}
+          <button 
+            type="submit" 
+            disabled={isLoading} 
+            className="w-full text-white font-bold py-4 px-4 rounded-2xl text-sm transition-all duration-300 active:scale-[0.98] mt-4 shadow-xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:shadow-[0_0_25px_rgba(59,130,246,0.3)] flex items-center justify-center gap-2.5 group select-none"
+          >
+            {isLoading ? (
+              <span>{t('authenticating')}</span>
+            ) : (
+              <>
+                <span>{t('loginBtn')}</span>
+                <span className="transform group-hover:-translate-x-1 rtl:group-hover:translate-x-1 transition-transform">→</span>
+              </>
+            )}
           </button>
         </form>
 
         <div className="mt-6 text-center text-xs border-t border-slate-900 pt-5 select-none">
-          <span className="text-slate-400">ليس لديك حساب؟ </span>
-          <Link href="/login/register" className="text-blue-400 font-extrabold hover:underline">تقديم طلب انضمام</Link>
+          <span className="text-slate-400">{t('noAccount')} </span>
+          <Link href="/login/register" className="text-blue-400 font-extrabold hover:underline">
+            {t('registerLink')}
+          </Link>
         </div>
 
         {/* 🛡️ شارة الحماية والأمان */}
@@ -214,7 +260,7 @@ function AcademicLoginContent() {
           <svg className="w-3.5 h-3.5 text-blue-500/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
-          <span>نظام تشفير وحماية البيانات 256-bit SSL Enabled</span>
+          <span>{t('sslBadge')}</span>
         </div>
 
       </motion.div>
@@ -223,8 +269,13 @@ function AcademicLoginContent() {
 }
 
 export default function AcademicLoginPage() {
+  const t = useTranslations('AcademicLogin');
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#050811] flex items-center justify-center text-slate-500 text-xs font-mono">LOADING ACADEMIC NODE...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#050811] flex items-center justify-center text-slate-500 text-xs font-mono">
+        {t('loadingFallback')}
+      </div>
+    }>
       <AcademicLoginContent />
     </Suspense>
   );

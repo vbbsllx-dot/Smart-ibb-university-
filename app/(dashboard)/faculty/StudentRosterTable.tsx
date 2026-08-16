@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useTranslations } from 'next-intl';
 import { 
   TrendingUp, 
   SlidersHorizontal, 
@@ -71,6 +72,8 @@ export default function StudentRosterTable({
   isSaving,
   onExportToExcel
 }: StudentRosterTableProps) {
+  const t = useTranslations('StudentRosterTable');
+  const tGlobal = useTranslations('RegistrationDetails');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'warning' | 'deprived'>('all');
@@ -79,7 +82,11 @@ export default function StudentRosterTable({
   const [tempColName, setTempColName] = useState('');
 
   // 📋 حالات كشف الحضور والغياب وقفل الكشف
-  const [attendanceSessions, setAttendanceSessions] = useState<string[]>(['محاضرة 1', 'محاضرة 2', 'محاضرة 3']);
+  const [attendanceSessions, setAttendanceSessions] = useState<string[]>([
+    t('defaultLecture1'), 
+    t('defaultLecture2'), 
+    t('defaultLecture3')
+  ]);
   const [attendanceData, setAttendanceData] = useState<{[studentId: string]: {[session: string]: string}}>({});
   const [newSessionName, setNewSessionName] = useState('');
   const [isSavingAttendance, setIsSavingAttendance] = useState(false);
@@ -98,7 +105,6 @@ export default function StudentRosterTable({
       }
 
       try {
-        // 1. جلب سجلات الحضور المربوطة بـ resource_id
         const { data: attData } = await supabase
           .from('attendance_records')
           .select('*')
@@ -113,7 +119,7 @@ export default function StudentRosterTable({
             const cleanSession = String(row.session_name).trim();
 
             if (!formatted[cleanStudentId]) formatted[cleanStudentId] = {};
-            formatted[cleanStudentId][cleanSession] = row.status || 'حاضر';
+            formatted[cleanStudentId][cleanSession] = row.status || t('statusPresent');
             sessionsSet.add(cleanSession);
           });
 
@@ -121,7 +127,6 @@ export default function StudentRosterTable({
           setAttendanceSessions(Array.from(sessionsSet));
         }
 
-        // 2. جلب حالة قفل الكشف والاعتماد للكنترول
         const { data: lockData } = await supabase
           .from('grade_locks')
           .select('*')
@@ -136,7 +141,7 @@ export default function StudentRosterTable({
           setIsSubmittedToControl(false);
         }
       } catch (err) {
-        console.error("خطأ جلب البيانات:", err);
+        console.error("Error fetching attendance & lock data:", err);
       }
     };
 
@@ -146,10 +151,10 @@ export default function StudentRosterTable({
   // 🔒 دالة تبديل الاعتماد والقفل
   const handleToggleGradeLock = async () => {
     if (!selectedResource || !selectedResource.id) {
-      return alert("⚠️ يرجى حفظ الكشف لأول مرة قبل الاعتماد والإغلاق!");
+      return alert(t('alertSaveFirstLock'));
     }
-    const actionText = isGradeLocked ? 'فتح إمكانية التعديل' : 'اعتماد وإغلاق الكشف نهائياً';
-    if (!confirm(`هل أنت متأكد من ${actionText}؟`)) return;
+    const actionText = isGradeLocked ? t('actionUnlockText') : t('actionLockText');
+    if (!confirm(t('confirmToggleLock', { action: actionText }))) return;
 
     setIsLockingLoading(true);
     try {
@@ -163,7 +168,7 @@ export default function StudentRosterTable({
           is_locked: nextLockState,
           submitted_to_control: nextSubmittedState,
           locked_at: new Date().toISOString(),
-          locked_by: 'أستاذ المادة'
+          locked_by: t('instructorDefault')
         }, { onConflict: 'resource_id' });
 
       if (error) throw error;
@@ -171,32 +176,29 @@ export default function StudentRosterTable({
       setIsGradeLocked(nextLockState);
       setIsSubmittedToControl(nextSubmittedState);
       
-      alert(`🎉 تم ${actionText} بنجاح!`);
+      alert(t('alertToggleLockSuccess', { action: actionText }));
     } catch (err: any) {
-      alert("❌ حدث خطأ أثناء تغيير حالة الكشف: " + err.message);
+      alert(t('alertToggleLockError') + err.message);
     } finally {
       setIsLockingLoading(false);
     }
   };
-
-  // 📞 رقم واتساب الكنترول المعتمد
-  const CONTROL_WHATSAPP_NUMBER = "967770689832"; 
+const CONTROL_WHATSAPP_NUMBER = "967770689832"; 
 
   const handleSendToControl = async () => {
     if (studentsRoster.length === 0) {
-      return alert("⚠️ لا يوجد طلاب في الجدول لإرسالهم!");
+      return alert(t('alertNoStudentsToSend'));
     }
 
     if (!selectedResource || !selectedResource.id) {
-      return alert("⚠️ يرجى حفظ الكشف أولاً قبل الإرسال للكنترول!");
+      return alert(t('alertSaveFirstSend'));
     }
 
     if (!isGradeLocked) {
-      return alert("⚠️ يجب اعتماد وإغلاق الكشف أولاً قبل تسليمه للكنترول!");
+      return alert(t('alertLockFirstSend'));
     }
 
-    const confirmMsg = "🚀 هل أنت متأكد من استخراج ملف Excel المعتمد وإرساله للكنترول؟";
-    if (!confirm(confirmMsg)) return;
+    if (!confirm(t('confirmSendControl'))) return;
 
     setIsControlSending(true);
     try {
@@ -211,27 +213,36 @@ export default function StudentRosterTable({
 
       if (error) throw error;
 
-      const doctorName = instructorInfo?.name || "أستاذ المادة";
+      // 1. استخراج المتغيرات والبيانات الحية للكشف
+      const doctorName = instructorInfo?.name || t('instructorDefault');
       const subjectName = manualSubjectName.trim() ? manualSubjectName : "....................";
-      const deptName = departmentNamesMap[Number(selectedResource?.dep_id || selectedResource?.dept_id)] || "القسم العلمي";
-      const levelName = levelNamesMap[Number(selectedResource?.level_id)] || "المستوى الدراسي";
+      const deptName = tGlobal(`departments.${selectedResource?.dep_id || selectedResource?.dept_id}` as any) || departmentNamesMap[Number(selectedResource?.dep_id || selectedResource?.dept_id)] || "القسم العلمي";
+      const levelName = tGlobal(`levels.${selectedResource?.level_id}` as any) || levelNamesMap[Number(selectedResource?.level_id)] || "المستوى الدراسي";
       const collegeName = instructorInfo?.college_name || "جامعة إب";
       const currentDate = new Date().toLocaleDateString('ar-YE');
 
+      /// 🎯 2. تحديد الترم الدراسي ديناميكياً
+      const rawSemester = selectedResource?.semester ?? selectedResource?.semester_id ?? selectedResource?.term ?? 1;
+      const isSecondSem = String(rawSemester) === '2' || String(rawSemester).toLowerCase() === 'second';
+      const semesterName = isSecondSem 
+        ? (t?.('semester2') || "الترم الثاني") 
+        : (t?.('semester1') || "الترم الأول");
+
+      // 3. بناء جدول الإكسل وتضمين الترم في الترويسة
       const XLSX = await import('xlsx');
       const wsData: any[][] = [
         ["🏛️ جمهورية اليمن - جامعة إب - كشف درجات معتمد للكنترول"],
         [`أستاذ المادة: ${doctorName}  |  الكلية والمؤسسة: ${collegeName}`],
         [`المادة الدراسية: ${subjectName}  |  القسم العلمي: ${deptName}`],
-        [`المستوى الدراسي: ${levelName}  |  تاريخ الاستخراج: ${currentDate}`],
+        [`المستوى الدراسي: ${levelName}  |  الفصل الدراسي: ${semesterName}  |  تاريخ الاستخراج: ${currentDate}`],
         [], 
-        ["الرقم الأكاديمي", "اسم الطالب الرباعي", "الحالة", ...customColumns]
+        [t('thAcademicId'), t('thFullName'), t('thStatus'), ...customColumns]
       ];
 
       studentsRoster.forEach((student) => {
         const studentName = student.name || student.student_name || student['اسم الطالب'] || "طالب غير مسمى";
         const studentId = student.student_id || student.id || "---";
-        const studentStatus = student.status || "منتظم";
+        const studentStatus = student.status || t('statusEnrolled');
 
         const row = [studentId, studentName, studentStatus];
         customColumns.forEach((col) => {
@@ -274,7 +285,7 @@ export default function StudentRosterTable({
       const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
       const safeFileName = manualSubjectName.trim() ? manualSubjectName.replace(/\s+/g, '_') : "كشف_درجات";
-      const exportFileName = `كشف_كنترول_${safeFileName}.xlsx`;
+      const exportFileName = `كشف_كنترول_${safeFileName}_${rawSemester == 2 ? 'ترم2' : 'ترم1'}.xlsx`;
       const downloadUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", downloadUrl);
@@ -287,41 +298,39 @@ export default function StudentRosterTable({
       await supabase.storage.from('university-files').upload(filePath, blob);
       const { data: { publicUrl } } = supabase.storage.from('university-files').getPublicUrl(filePath);
 
+      // 4. رسالة الواتساب المتضمنة الترم الدراسي
       const whatsappMessage = 
-`====================================
-* كشف درجات رسمي معتمد - جامعة إب *
-====================================
+`🏛️ *كشف درجات رسمي معتمد - جامعة إب*
+━━━━━━━━━━━━━━━━━━━━
+▪ *أستاذ المادة:* ${doctorName}
+▪ *المادة الدراسية:* ${subjectName}
+▪ *الكلية والقسم:* ${deptName}
+▪ *المستوى والترم:* ${levelName} - (${semesterName})
+▪ *إجمالي الطلاب:* (${studentsRoster.length}) طالب
 
-▪ أستاذ المادة: ${doctorName}
-▪ المادة الدراسية: ${subjectName}
-▪ الكلية والقسم: ${deptName}
-▪ المستوى الدراسي: ${levelName}
-▪ إجمالي الطلاب: (${studentsRoster.length}) طالب
-
-[+] رابط تحميل ملف Excel المنسق:
+📥 *رابط تحميل ملف Excel المنسق:*
 ${publicUrl}
 
-✔ تم اعتماد وتسليم الكشف بنجاح.`;
+✅ *تم التوقيع والاعتماد الرقمي للكشف.*`;
 
       setIsSubmittedToControl(true);
 
-      const whatsappUrl = `https://wa.me/${CONTROL_WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappMessage)}`;
-      window.open(whatsappUrl, '_blank');
+      const whatsappUrl = `https://api.whatsapp.com/send?phone=${CONTROL_WHATSAPP_NUMBER}&text=${encodeURIComponent(whatsappMessage)}`;
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
 
-      alert("🎉 تم إرسال ملف الكشف بنجاح وفتح محادثة الواتساب!");
+      alert(t('alertSendControlSuccess'));
 
     } catch (err: any) {
-      alert("❌ فشل عملية الإرسال للكنترول: " + err.message);
+      alert(t('alertSendControlError') + err.message);
     } finally {
       setIsControlSending(false);
     }
   };
-
   const handleRenameColumn = (oldName: string, newName: string) => {
-    if (isGradeLocked) return alert("🔒 الكشف معتمد ومغلق! لا يمكن التعديل.");
+    if (isGradeLocked) return alert(t('alertLockedCantEdit'));
     if (!newName.trim() || oldName === newName) return;
     if (customColumns.includes(newName.trim())) {
-      alert('⚠️ هذا الاسم موجود بالفعل في الكشف!');
+      alert(t('alertColExists'));
       return;
     }
 
@@ -341,15 +350,15 @@ ${publicUrl}
 
   const handleAddColumn = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isGradeLocked) return alert("🔒 الكشف معتمد ومغلق! لا يمكن التعديل.");
+    if (isGradeLocked) return alert(t('alertLockedCantEdit'));
     if (!newColumnName.trim()) return;
-    if (customColumns.includes(newColumnName.trim())) return alert('هذا العمود موجود مسبقاً!');
+    if (customColumns.includes(newColumnName.trim())) return alert(t('alertColExists'));
     setCustomColumns([...customColumns, newColumnName.trim()]);
     setNewColumnName('');
   };
 
   const handleAddTemplateColumn = (colName: string) => {
-    if (isGradeLocked) return alert("🔒 الكشف معتمد ومغلق! لا يمكن التعديل.");
+    if (isGradeLocked) return alert(t('alertLockedCantEdit'));
     if (customColumns.includes(colName)) return;
     setCustomColumns([...customColumns, colName]);
   };
@@ -357,7 +366,7 @@ ${publicUrl}
   const handleAddSession = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSessionName.trim()) return;
-    if (attendanceSessions.includes(newSessionName.trim())) return alert('هذه المحاضرة مضافة مسبقاً!');
+    if (attendanceSessions.includes(newSessionName.trim())) return alert(t('alertSessionExists'));
     setAttendanceSessions([...attendanceSessions, newSessionName.trim()]);
     setNewSessionName('');
   };
@@ -367,8 +376,8 @@ ${publicUrl}
     const session = String(rawSession).trim();
 
     setAttendanceData((prev) => {
-      const currentStatus = prev[studentId]?.[session] || 'حاضر';
-      const nextStatus = currentStatus === 'حاضر' ? 'غائب' : currentStatus === 'غائب' ? 'مستأذن' : 'حاضر';
+      const currentStatus = prev[studentId]?.[session] || t('statusPresent');
+      const nextStatus = currentStatus === t('statusPresent') ? t('statusAbsent') : currentStatus === t('statusAbsent') ? t('statusExcused') : t('statusPresent');
       return {
         ...prev,
         [studentId]: {
@@ -379,7 +388,7 @@ ${publicUrl}
     });
   };
 
-  const handleSetAllAttendanceForSession = (session: string, status: 'حاضر' | 'غائب') => {
+  const handleSetAllAttendanceForSession = (session: string, status: string) => {
     const updated: any = { ...attendanceData };
     studentsRoster.forEach((s) => {
       if (!updated[s.student_id]) updated[s.student_id] = {};
@@ -389,7 +398,7 @@ ${publicUrl}
   };
 
   const handleSaveAttendanceRecords = async () => {
-    if (studentsRoster.length === 0) return alert('⚠️ لا يوجد طلاب بجدول الحضور للرصد!');
+    if (studentsRoster.length === 0) return alert(t('alertNoAttendanceToSave'));
     setIsSavingAttendance(true);
 
     try {
@@ -447,9 +456,9 @@ ${publicUrl}
         if (error) throw error;
       }
 
-      alert('🎉 تم حفظ وتثبيت كشف الحضور والغياب بنجاح بداخل قاعدة البيانات!');
+      alert(t('alertAttendanceSaved'));
     } catch (err: any) {
-      alert('❌ فشل حفظ كشف الحضور: ' + err.message);
+      alert(t('alertAttendanceSaveError') + err.message);
     } finally {
       setIsSavingAttendance(false);
     }
@@ -463,7 +472,7 @@ ${publicUrl}
     let absenceCount = 0;
     attendanceSessions.forEach((session) => {
       const cleanSession = String(session).trim();
-      if (attendanceData[studentId]?.[cleanSession] === 'غائب') {
+      if (attendanceData[studentId]?.[cleanSession] === t('statusAbsent') || attendanceData[studentId]?.[cleanSession] === 'غائب') {
         absenceCount++;
       }
     });
@@ -534,7 +543,7 @@ ${publicUrl}
   })();
 
   return (
-    <section className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl shadow-md overflow-hidden print:border-none print:shadow-none print:bg-white animate-in fade-in duration-300 w-full font-sans dir-rtl text-right">
+    <section className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl shadow-md overflow-hidden print:border-none print:shadow-none print:bg-white animate-in fade-in duration-300 w-full font-sans">
       
       <style jsx global>{`
         @media print {
@@ -566,8 +575,8 @@ ${publicUrl}
           .attendance-name-col {
             white-space: nowrap !important;
             min-width: 210px !important;
-            text-align: right !important;
-            padding-right: 8px !important;
+            text-align: start !important;
+            padding-inline-start: 8px !important;
           }
           th {
             background-color: #f1f5f9 !important;
@@ -590,7 +599,7 @@ ${publicUrl}
             }`}
           >
             <Award className="w-4 h-4" />
-            <span>كشف رصد الدرجات</span>
+            <span>{t('tabGrades')}</span>
           </button>
 
           <button
@@ -603,11 +612,11 @@ ${publicUrl}
             }`}
           >
             <CalendarCheck className="w-4 h-4" />
-            <span>كشف الحضور والغياب والإنذارات</span>
+            <span>{t('tabAttendance')}</span>
           </button>
         </div>
 
-        {/* 🔒 أزرار شارة الاعتماد وقفل الكشف والإرسال للكنترول (تظهر فور جلب أو تعبئة الطلاب) */}
+        {/* 🔒 أزرار شارة الاعتماد وقفل الكشف والإرسال للكنترول */}
         {(studentsRoster.length > 0 || selectedResource) && viewMode === 'grades' && (
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -621,7 +630,7 @@ ${publicUrl}
               ) : (
                 <Send className="w-3.5 h-3.5" />
               )}
-              <span>إرسال الكشف إلى الكنترول 📤</span>
+              <span>{t('sendToControlBtn')}</span>
             </button>
 
             <span className={`text-[11px] px-3 py-1 rounded-xl font-black border flex items-center gap-1 ${
@@ -630,7 +639,7 @@ ${publicUrl}
                 : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
             }`}>
               {isGradeLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
-              <span>{isGradeLocked ? 'الكشف معتمد ومغلق' : 'الكشف مفتوح للتعديل'}</span>
+              <span>{isGradeLocked ? t('statusLocked') : t('statusUnlocked')}</span>
             </span>
 
             <button
@@ -644,7 +653,7 @@ ${publicUrl}
               }`}
             >
               {isLockingLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-              <span>{isGradeLocked ? 'طلب فتح التعديل' : 'اعتماد وإغلاق نهائي'}</span>
+              <span>{isGradeLocked ? t('btnRequestUnlock') : t('btnFinalLock')}</span>
             </button>
           </div>
         )}
@@ -656,28 +665,28 @@ ${publicUrl}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
             <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl"><TrendingUp className="w-4 h-4" /></div>
             <div>
-              <p className="text-[10px] font-bold text-slate-400">نسبة النجاح الفورية</p>
+              <p className="text-[10px] font-bold text-slate-400">{t('statSuccessRate')}</p>
               <p className="text-sm font-black text-emerald-400">{classStats.successRate}%</p>
             </div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
             <div className="p-2 bg-sky-500/20 text-sky-400 rounded-xl"><SlidersHorizontal className="w-4 h-4" /></div>
             <div>
-              <p className="text-[10px] font-bold text-slate-400">المعدل العام للدفعة</p>
+              <p className="text-[10px] font-bold text-slate-400">{t('statAverage')}</p>
               <p className="text-sm font-black text-sky-400">{classStats.average}</p>
             </div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
             <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl"><Award className="w-4 h-4" /></div>
             <div>
-              <p className="text-[10px] font-bold text-slate-400">أعلى درجة مرصودة</p>
+              <p className="text-[10px] font-bold text-slate-400">{t('statHighest')}</p>
               <p className="text-sm font-black text-amber-400">{classStats.highest}</p>
             </div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3">
             <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl"><AlertTriangle className="w-4 h-4" /></div>
             <div>
-              <p className="text-[10px] font-bold text-slate-400">أدنى درجة مرصودة</p>
+              <p className="text-[10px] font-bold text-slate-400">{t('statLowest')}</p>
               <p className="text-sm font-black text-rose-400">{classStats.lowest}</p>
             </div>
           </div>
@@ -689,24 +698,24 @@ ${publicUrl}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-[#0A2540] text-white border-b border-slate-700 select-none print:hidden">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-between">
             <div>
-              <span className="text-[10px] text-slate-400 font-bold block">إجمالي طلاب الدفعة</span>
-              <span className="text-base font-black text-white font-mono">{attendanceOverallStats.total} طالب</span>
+              <span className="text-[10px] text-slate-400 font-bold block">{t('statTotalStudents')}</span>
+              <span className="text-base font-black text-white font-mono">{attendanceOverallStats.total} {t('studentsCountUnit')}</span>
             </div>
             <UserCheck className="w-5 h-5 text-emerald-400" />
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-between">
             <div>
-              <span className="text-[10px] text-amber-400 font-bold block">المنذرون بالغياب (15% وأكثر)</span>
-              <span className="text-base font-black text-amber-400 font-mono">{attendanceOverallStats.warningCount} طالب</span>
+              <span className="text-[10px] text-amber-400 font-bold block">{t('statWarningStudents')}</span>
+              <span className="text-base font-black text-amber-400 font-mono">{attendanceOverallStats.warningCount} {t('studentsCountUnit')}</span>
             </div>
             <AlertTriangle className="w-5 h-5 text-amber-400" />
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-between">
             <div>
-              <span className="text-[10px] text-rose-400 font-bold block">المحرومون رسمياً (25% وأكثر)</span>
-              <span className="text-base font-black text-rose-400 font-mono">{attendanceOverallStats.deprivedCount} طالب</span>
+              <span className="text-[10px] text-rose-400 font-bold block">{t('statDeprivedStudents')}</span>
+              <span className="text-base font-black text-rose-400 font-mono">{attendanceOverallStats.deprivedCount} {t('studentsCountUnit')}</span>
             </div>
             <AlertOctagon className="w-5 h-5 text-rose-400" />
           </div>
@@ -719,7 +728,10 @@ ${publicUrl}
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-3.5 rounded-full bg-sky-600" />
             <h3 className="text-xs font-black text-slate-900">
-              {activeRosterHeader || (selectedResource ? `كشف طلاب: [ ${departmentNamesMap[Number(selectedResource.dep_id)] || departmentNamesMap[selectedResource.dep_id] || 'قسم الكلية'} - ${levelNamesMap[Number(selectedResource.level_id)] || levelNamesMap[selectedResource.level_id]} ]` : "كشف الطلاب المرن")}
+              {activeRosterHeader || (selectedResource ? t('rosterPrefix', {
+                dept: tGlobal(`departments.${selectedResource.dep_id}` as any) || departmentNamesMap[Number(selectedResource.dep_id)] || 'قسم الكلية',
+                level: tGlobal(`levels.${selectedResource.level_id}` as any) || levelNamesMap[Number(selectedResource.level_id)]
+              }) : t('flexibleRoster'))}
             </h3>
           </div>
 
@@ -730,18 +742,18 @@ ${publicUrl}
                 onChange={(e: any) => setAttendanceFilter(e.target.value)}
                 className="p-2 border border-slate-200 rounded-xl text-xs font-bold bg-white text-[#062c35]"
               >
-                <option value="all">🌐 جميع الطلاب</option>
-                <option value="warning">⚠️ المنذرون بالغياب (15% وأكثر)</option>
-                <option value="deprived">🚫 المحرومون رسمياً (25% وأكثر)</option>
+                <option value="all">{t('filterAll')}</option>
+                <option value="warning">{t('filterWarning')}</option>
+                <option value="deprived">{t('filterDeprived')}</option>
               </select>
             )}
 
             <div className="relative flex-1 sm:w-64">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
               <input 
                 type="text"
-                placeholder="ابحث بالاسم أو الرقم الأكاديمي..."
-                className="w-full pl-3 pr-8 py-2 border border-slate-200 rounded-xl text-xs bg-white font-semibold focus:outline-none focus:border-indigo-500 shadow-inner text-right"
+                placeholder={t('searchPlaceholder')}
+                className="w-full ps-8 pe-3 py-2 border border-slate-200 rounded-xl text-xs bg-white font-semibold focus:outline-none focus:border-indigo-500 shadow-inner"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -749,25 +761,25 @@ ${publicUrl}
           </div>
         </div>
 
-        {/* 📋 أزرار القوالب السريعة + حقل إضافة عمود مخصص (تظهر دائماً فور تعبئة الكشف) */}
+        {/* 📋 أزرار القوالب السريعة + حقل إضافة عمود مخصص */}
         {viewMode === 'grades' && studentsRoster.length > 0 && !isGradeLocked && (
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 select-none">
-            <span className="text-[10px] font-black text-slate-500">📋 قوالب رصد سريعة:</span>
-            <button type="button" onClick={() => handleAddTemplateColumn("الحضور والغياب (10 درجات)")} className="text-[10px] font-black bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer">+ الحضور</button>
-            <button type="button" onClick={() => handleAddTemplateColumn("الامتحان النصفي (20 درجة)")} className="text-[10px] font-black bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer">+ الامتحان النصفي</button>
-            <button type="button" onClick={() => handleAddTemplateColumn("الواجبات والتقارير (10 درجات)")} className="text-[10px] font-black bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer">+ الواجبات</button>
-            <button type="button" onClick={() => handleAddTemplateColumn("المجموع الإجمالي (100 درجة)")} className="text-[10px] font-black bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer">+ المجموع النهائي</button>
+            <span className="text-[10px] font-black text-slate-500">{t('quickTemplates')}</span>
+            <button type="button" onClick={() => handleAddTemplateColumn(t('templateAttendanceCol'))} className="text-[10px] font-black bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer">{t('templateAttendance')}</button>
+            <button type="button" onClick={() => handleAddTemplateColumn(t('templateMidtermCol'))} className="text-[10px] font-black bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer">{t('templateMidterm')}</button>
+            <button type="button" onClick={() => handleAddTemplateColumn(t('templateAssignmentsCol'))} className="text-[10px] font-black bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer">{t('templateAssignments')}</button>
+            <button type="button" onClick={() => handleAddTemplateColumn(t('templateTotalCol'))} className="text-[10px] font-black bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer">{t('templateTotal')}</button>
             
-            <form onSubmit={handleAddColumn} className="mr-auto flex items-center gap-1">
+            <form onSubmit={handleAddColumn} className="ms-auto flex items-center gap-1">
               <input 
                 type="text" 
-                placeholder="عمود مخصص جديد..." 
-                className="p-1.5 border border-slate-200 rounded-lg text-[10px] bg-white focus:outline-none font-semibold shadow-inner text-right"
+                placeholder={t('customColumnPlaceholder')} 
+                className="p-1.5 border border-slate-200 rounded-lg text-[10px] bg-white focus:outline-none font-semibold shadow-inner"
                 value={newColumnName}
                 onChange={(e) => setNewColumnName(e.target.value)}
               />
               <button type="submit" className="bg-[#0A2540] text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm cursor-pointer hover:opacity-95">
-                + إضافة
+                {t('btnAdd')}
               </button>
             </form>
           </div>
@@ -776,17 +788,17 @@ ${publicUrl}
         {/* أزرار إضافة محاضرات جديدة */}
         {viewMode === 'attendance' && (
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 select-none">
-            <span className="text-[10px] font-black text-slate-500">📅 إضافة لقاء/محاضرة:</span>
+            <span className="text-[10px] font-black text-slate-500">{t('addSessionLabel')}</span>
             <form onSubmit={handleAddSession} className="flex items-center gap-1">
               <input 
                 type="text" 
-                placeholder="اسم المحاضرة (مثلاً: محاضرة 4)..." 
-                className="p-1.5 border border-slate-200 rounded-lg text-[10px] bg-white focus:outline-none font-semibold shadow-inner text-right"
+                placeholder={t('sessionPlaceholder')} 
+                className="p-1.5 border border-slate-200 rounded-lg text-[10px] bg-white focus:outline-none font-semibold shadow-inner"
                 value={newSessionName}
                 onChange={(e) => setNewSessionName(e.target.value)}
               />
               <button type="submit" className="bg-sky-700 text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm cursor-pointer hover:opacity-95">
-                + إضافة محاضرة
+                {t('btnAddSession')}
               </button>
             </form>
           </div>
@@ -802,7 +814,7 @@ ${publicUrl}
               isGradeLocked ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
             }`}
           >
-            <Save className="w-4 h-4" /> {isSaving ? 'جاري المزامنة والحفظ...' : isGradeLocked ? 'الكشف معتمد (مغلق)' : 'حفظ الدرجات بقاعدة البيانات'}
+            <Save className="w-4 h-4" /> {isSaving ? t('savingGrades') : isGradeLocked ? t('gradesLockedNotice') : t('saveGradesBtn')}
           </button>
           
           <div className="flex items-center gap-2">
@@ -810,13 +822,13 @@ ${publicUrl}
               onClick={onExportToExcel}
               className="bg-white hover:bg-slate-100 text-slate-700 border text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> تصدير Excel
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> {t('exportExcel')}
             </button>
             <button 
               onClick={() => window.print()}
               className="bg-white hover:bg-slate-100 text-slate-700 border text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
-              <Printer className="w-4 h-4 text-sky-600" /> طباعة كـ PDF
+              <Printer className="w-4 h-4 text-sky-600" /> {t('printPdf')}
             </button>
           </div>
         </div>
@@ -830,7 +842,7 @@ ${publicUrl}
             className="bg-sky-600 hover:bg-sky-700 text-white text-xs font-black px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
           >
             {isSavingAttendance ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4" />}
-            <span>حفظ كشف الحضور والغياب</span>
+            <span>{t('saveAttendanceBtn')}</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -838,7 +850,7 @@ ${publicUrl}
               onClick={() => window.print()}
               className="bg-white hover:bg-slate-100 text-slate-700 border text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
-              <Printer className="w-4 h-4 text-sky-600" /> طباعة كشف الحضور والإنذارات
+              <Printer className="w-4 h-4 text-sky-600" /> {t('printAttendancePdf')}
             </button>
           </div>
         </div>
@@ -851,19 +863,19 @@ ${publicUrl}
           {isGradeLocked && (
             <div className="bg-amber-500/10 border-b border-amber-500/30 p-2 text-center text-xs font-black text-amber-800 flex items-center justify-center gap-2 print:hidden">
               <Lock className="w-4 h-4 text-amber-700" />
-              <span>هذا الكشف معتمد ومغلق نهائياً. تم تجميد الخانات لمنع أي تعديل غير مصرح به.</span>
+              <span>{t('lockedBannerNotice')}</span>
             </div>
           )}
 
-          <table className="w-full text-right text-xs print:text-slate-900 print:border-collapse print:border">
+          <table className="w-full text-start text-xs print:text-slate-900 print:border-collapse print:border">
             <thead className="bg-white/60 text-slate-500 font-bold border-b border-slate-200/60 select-none print:bg-slate-100 print:text-slate-900">
               <tr className="print:border-b-2 print:border-slate-900">
-                <th className="px-6 py-4 font-black text-slate-800 print:border print:p-2">الرقم الأكاديمي</th>
-                <th className="px-6 py-4 font-black text-slate-800 print:border print:p-2 min-w-[180px]">الأسماء</th>
-                <th className="px-6 py-4 text-center font-black text-slate-800 print:border print:p-2">الحالة</th>
+                <th className="px-6 py-4 font-black text-slate-800 print:border print:p-2">{t('thAcademicId')}</th>
+                <th className="px-6 py-4 font-black text-slate-800 print:border print:p-2 min-w-[180px]">{t('thStudentName')}</th>
+                <th className="px-6 py-4 text-center font-black text-slate-800 print:border print:p-2">{t('thStatus')}</th>
                 
                 {customColumns.map((col, index) => (
-                  <th key={index} className="px-4 py-3 text-center text-sky-700 font-black border-r border-slate-200/60 bg-sky-50/30 relative group print:text-slate-900 print:bg-slate-100 print:border print:p-2">
+                  <th key={index} className="px-4 py-3 text-center text-sky-700 font-black border-s border-slate-200/60 bg-sky-50/30 relative group print:text-slate-900 print:bg-slate-100 print:border print:p-2">
                     {editingCol === col ? (
                       <div className="flex items-center gap-1 justify-center print:hidden">
                         <input 
@@ -929,7 +941,7 @@ ${publicUrl}
                     <td className="px-6 py-4 font-extrabold text-slate-900 print:border print:p-2">{student.name}</td>
                     <td className="px-6 py-4 text-center print:border print:p-2">
                       <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-100 print:bg-white print:text-slate-900 print:border-none">
-                        {student.status || 'منتظم'}
+                        {student.status || t('statusEnrolled')}
                       </span>
                     </td>
 
@@ -949,7 +961,7 @@ ${publicUrl}
                       }
 
                       return (
-                        <td key={index} className="px-2 py-2 border-r border-slate-200 text-center min-w-[130px] print:border print:p-2">
+                        <td key={index} className="px-2 py-2 border-s border-slate-200 text-center min-w-[130px] print:border print:p-2">
                           <input 
                             type="text" 
                             disabled={isGradeLocked}
@@ -968,36 +980,96 @@ ${publicUrl}
                 ))
               ) : (
                 <tr>
-                  <td colSpan={3 + customColumns.length} className="text-center py-8 text-slate-400 font-bold">📭 لا يوجد نتائج مطابقة للبحث الحالي.</td>
+                  <td colSpan={3 + customColumns.length} className="text-center py-8 text-slate-400 font-bold">
+                    {t('noMatchingResults')}
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
+
+
+
+          {/* 🖨️ 👇 هنا يوضع الكود رقم 5: التوقيع الرقمي والـ QR Code المخصص للطباعة فقط */}
+          {viewMode === 'grades' && (
+            <div className="hidden print:flex justify-between items-end mt-8 pt-4 border-t-2 border-slate-800 text-xs w-full text-slate-900">
+              
+              {/* جهة اليمين: توقيع الدكتور المعتمد تحت اسمه */}
+              <div className="space-y-1 text-start">
+                <p className="font-black">أستاذ المادة المعتمد: {instructorInfo?.name || "د. ...................."}</p>
+                <p className="text-[10px] font-mono text-slate-600">المعرف الأكاديمي: {instructorInfo?.id}</p>
+                
+                {instructorInfo?.signature_url ? (
+                  <div className="pt-1">
+                    <p className="text-[9px] font-bold text-slate-500">التوقيع الرقمي المعتمد:</p>
+                    <img 
+                      src={instructorInfo.signature_url} 
+                      alt="Doctor Signature" 
+                      className="h-12 max-w-[140px] object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-10 border-b border-dashed border-slate-400 w-36 pt-4 text-[9px] text-slate-400">
+                    (التوقيع اليدوي)
+                  </div>
+                )}
+              </div>
+
+              {/* الوسط: ختم النظام وتاريخ الرصد */}
+              <div className="text-center space-y-0.5">
+                <div className="border border-slate-800 px-3 py-1 rounded-lg text-[9px] font-black uppercase bg-slate-50">
+                  وثيقة درجات رسمية معتمدة
+                </div>
+                <p className="text-[8px] font-mono text-slate-500">
+                  تاريخ الاعتماد: {new Date().toLocaleString('ar-YE')}
+                </p>
+              </div>
+{/* جهة اليسار: رمز التحقق الذكي QR Code المباشر */}
+<div className="flex flex-col items-center space-y-1">
+  <img 
+    src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
+`🏛️ جامعة إب - وثيقة درجات معتمدة
+━━━━━━━━━━━━━━━━━━━━
+👤 أستاذ المادة: ${instructorInfo?.name || 'د. غير معروف'}
+🆔 الرقم الأكاديمي: ${instructorInfo?.id || '---'}
+🔒 الاعتماد: موقع وموثق رقمياً
+🕒 تاريخ التوثيق: ${new Date().toLocaleDateString('ar-YE')}
+━━━━━━━━━━━━━━━━━━━━`
+    )}`}
+    alt="Verification QR"
+    className="w-16 h-16 border border-slate-300 p-1 rounded-lg bg-white shadow-xs"
+  />
+  <span className="text-[8px] font-mono text-slate-500 font-bold">SCAN TO VERIFY</span>
+</div>
+
+            </div>
+          )}
+
         </div>
       )}
 
       {/* 🔵 2. جدول الحضور والغياب مع الإنذارات والحرمان */}
       {viewMode === 'attendance' && (
         <div className="overflow-x-auto print:overflow-visible">
-          <table className="w-full text-right text-xs print:text-slate-900 print:border-collapse print:border">
+          <table className="w-full text-start text-xs print:text-slate-900 print:border-collapse print:border">
             <thead className="bg-[#062c35] text-white font-bold select-none">
               <tr>
                 <th className="px-6 py-4 font-black print:border print:p-2">#</th>
-                <th className="px-6 py-4 font-black print:border print:p-2">الرقم الأكاديمي</th>
-                <th className="px-6 py-4 font-black print:border print:p-2 attendance-name-col">اسم الطالب الرباعي</th>
-                <th className="px-4 py-4 text-center font-black print:border print:p-2">حالة الإنذار</th>
+                <th className="px-6 py-4 font-black print:border print:p-2">{t('thAcademicId')}</th>
+                <th className="px-6 py-4 font-black print:border print:p-2 attendance-name-col">{t('thFullName')}</th>
+                <th className="px-4 py-4 text-center font-black print:border print:p-2">{t('thWarningStatus')}</th>
                 
                 {attendanceSessions.map((session, index) => (
-                  <th key={index} className="px-4 py-3 text-center border-r border-slate-700 bg-[#0e3a45] print:text-slate-900 print:bg-slate-100 print:border">
+                  <th key={index} className="px-4 py-3 text-center border-s border-slate-700 bg-[#0e3a45] print:text-slate-900 print:bg-slate-100 print:border">
                     <div className="flex flex-col items-center gap-1">
                       <span>{session}</span>
                       <div className="flex items-center gap-1 text-[9px] font-normal print:hidden">
                         <button
                           type="button"
-                          onClick={() => handleSetAllAttendanceForSession(session, 'حاضر')}
+                          onClick={() => handleSetAllAttendanceForSession(session, t('statusPresent'))}
                           className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/40 rounded transition-colors cursor-pointer"
                         >
-                          الكل حاضر
+                          {t('setAllPresent')}
                         </button>
                       </div>
                     </div>
@@ -1019,16 +1091,16 @@ ${publicUrl}
                         {absenceStatus === 'deprived' ? (
                           <span className="px-2.5 py-1 bg-rose-500/15 text-rose-700 border border-rose-500/30 rounded-xl font-black text-[10px] flex items-center justify-center gap-1">
                             <AlertOctagon className="w-3.5 h-3.5 text-rose-600" />
-                            <span>محروم ({percentage}%)</span>
+                            <span>{t('badgeDeprived')} ({percentage}%)</span>
                           </span>
                         ) : absenceStatus === 'warning' ? (
                           <span className="px-2.5 py-1 bg-amber-500/15 text-amber-800 border border-amber-500/30 rounded-xl font-black text-[10px] flex items-center justify-center gap-1">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                            <span>إنذار ({percentage}%)</span>
+                            <span>{t('badgeWarning')} ({percentage}%)</span>
                           </span>
                         ) : (
                           <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 rounded-xl font-bold text-[10px]">
-                            منتظم ({percentage}%)
+                            {t('badgeRegular')} ({percentage}%)
                           </span>
                         )}
                       </td>
@@ -1036,31 +1108,31 @@ ${publicUrl}
                       {attendanceSessions.map((session, sIdx) => {
                         const studentKey = String(student.student_id || student.academic_id || student.id || '').trim();
                         const sessionKey = String(session).trim();
-                        const status = attendanceData[studentKey]?.[sessionKey] || 'حاضر';
+                        const status = attendanceData[studentKey]?.[sessionKey] || t('statusPresent');
 
                         return (
-                          <td key={sIdx} className="px-1 py-2 text-center border-r border-slate-100 min-w-[45px] w-12">
+                          <td key={sIdx} className="px-1 py-2 text-center border-s border-slate-100 min-w-[45px] w-12">
                             <button
                               type="button"
                               onClick={() => handleToggleAttendance(studentKey, sessionKey)}
                               className={`px-2 py-1 rounded-lg text-xs font-black transition-all cursor-pointer shadow-xs print:hidden flex items-center justify-center gap-1 mx-auto ${
-                                status === 'حاضر'
+                                status === t('statusPresent') || status === 'حاضر'
                                   ? 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/30'
-                                  : status === 'غائب'
+                                  : status === t('statusAbsent') || status === 'غائب'
                                   ? 'bg-rose-500/15 text-rose-700 border border-rose-500/30'
                                   : 'bg-amber-500/15 text-amber-700 border border-amber-500/30'
                               }`}
                             >
-                              {status === 'حاضر' && <UserCheck className="w-3.5 h-3.5 text-emerald-600" />}
-                              {status === 'غائب' && <UserX className="w-3.5 h-3.5 text-rose-600" />}
-                              {status === 'مستأذن' && <Clock className="w-3.5 h-3.5 text-amber-600" />}
+                              {(status === t('statusPresent') || status === 'حاضر') && <UserCheck className="w-3.5 h-3.5 text-emerald-600" />}
+                              {(status === t('statusAbsent') || status === 'غائب') && <UserX className="w-3.5 h-3.5 text-rose-600" />}
+                              {(status === t('statusExcused') || status === 'مستأذن') && <Clock className="w-3.5 h-3.5 text-amber-600" />}
                               <span className="hidden sm:inline">{status}</span>
                             </button>
 
                             <span className={`hidden print:block font-black text-sm text-center ${
-                              status === 'حاضر' ? 'text-emerald-700' : status === 'غائب' ? 'text-rose-700' : 'text-amber-700'
+                              status === t('statusPresent') || status === 'حاضر' ? 'text-emerald-700' : status === t('statusAbsent') || status === 'غائب' ? 'text-rose-700' : 'text-amber-700'
                             }`}>
-                              {status === 'حاضر' ? '✓' : status === 'غائب' ? '✕' : '•'}
+                              {status === t('statusPresent') || status === 'حاضر' ? '✓' : status === t('statusAbsent') || status === 'غائب' ? '✕' : '•'}
                             </span>
                           </td>
                         );
@@ -1071,7 +1143,7 @@ ${publicUrl}
               ) : (
                 <tr>
                   <td colSpan={4 + attendanceSessions.length} className="text-center py-10 text-slate-400 font-bold">
-                    لا يوجد طلاب مسجلون بجدول الحضور.
+                    {t('noAttendanceStudents')}
                   </td>
                 </tr>
               )}
@@ -1080,10 +1152,12 @@ ${publicUrl}
         </div>
       )}
 
+      
+
       {(!selectedResource && studentsRoster.length === 0) && (
         <div className="text-center py-16 text-slate-400 bg-white/30 font-bold text-xs select-none space-y-2 print:hidden">
-          <p>📥 شاشة المراقبة مغلقة حالياً.</p>
-          <p className="text-[11px] text-slate-400 font-medium">الرجاء اختيار أو تحديد مادة واحدة أو استدعاء كشف طلاب لتفعيل الرصد الفوري.</p>
+          <p>{t('emptyDashboardTitle')}</p>
+          <p className="text-[11px] text-slate-400 font-medium">{t('emptyDashboardDesc')}</p>
         </div>
       )}
     </section>

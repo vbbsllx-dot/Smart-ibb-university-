@@ -3,6 +3,7 @@
 import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { 
   ArrowRight, 
   Cpu, 
@@ -36,7 +37,7 @@ const collegesDatabase: { [key: string]: any } = {
       "computer-control": {
         name: "هندسة الحاسبات والتحكم",
         icon: Cpu,
-        headOfDept: "أ.د. محمد الشبيبي (مشرف أكاديمي رئيسي)",
+        headOfDept: "أ.د.مهنس حاسبات ومتحكمات دقيقة",
         duration: 5,
         studyPlan: {
           1: [
@@ -59,7 +60,7 @@ const collegesDatabase: { [key: string]: any } = {
         gradProjects: [
           {
             title: "منصة جامعة إب الذكية (Ibb Smart University Platform)",
-            designer: "م. محمد الشبيبي وفريقه الهندسي المتميز",
+            designer: "أ.د. مهنس حاسبات ومتحكمات دقيقة وفريقه الهندسي المتميز",
             desc: "نظام أكاديمي وسحابي متكامل يخدم الطلاب والكادر الأكاديمي عبر بوابات رصد تفاعلية، ومكتبة ذكية إلكترونية معززة بخصائص الأتمتة المبتكرة ورصد الدرجات حرارياً وبصرياً."
           }
         ]
@@ -76,7 +77,7 @@ const collegesDatabase: { [key: string]: any } = {
         gradProjects: [
           {
             title: "تصميم ودراسة إنشائية لبرج سكني مقاوم للهزات الأرضية في محافظة إب",
-            designer: "خريجو الهندسة المدنية",
+            designer: "أ.د. مهندس مدني خبير وفريقه الهندسي المتميز",
             desc: "دراسة إنشائية متكاملة لبرج مرتفع يتكون من 15 طابقاً مع فحص للتربة السائدة في المنحدرات الجبلية لمحافظة إب."
           }
         ]
@@ -171,7 +172,7 @@ const collegesDatabase: { [key: string]: any } = {
           }
         ]
       },
-      "nursing": { // 🌟 إضافة قسم التمريض كاملاً هنا ليصبح متوفراً وبقوة!
+      "nursing": {
         name: "التمريض",
         icon: Activity,
         headOfDept: "أ.د. أخصائي تمريض قدير",
@@ -330,6 +331,7 @@ const collegesDatabase: { [key: string]: any } = {
 };
 
 export default function CollegeDetailPage({ params }: { params: any }) {
+  const t = useTranslations('CollegeDetail');
   const resolvedParams = use<{ collegeId: string }>(params);
   const { collegeId } = resolvedParams;
 
@@ -343,7 +345,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
   const [activeLevel, setActiveLevel] = useState<number>(1);
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
 
-  // 🧠 ذكاء برمجي: قراءة التبويب المرسل من الرابط (Query Param) لتحديده فورياً عند فتح الصفحة
+  // قراءة التبويب المرسل من الرابط (Query Param) لتحديده فورياً عند فتح الصفحة
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const queryParams = new URLSearchParams(window.location.search);
@@ -357,9 +359,9 @@ export default function CollegeDetailPage({ params }: { params: any }) {
   if (!college) {
     return (
       <div className="min-h-screen bg-[#F1F5F9] flex flex-col items-center justify-center text-center p-6" dir="rtl">
-        <h2 className="text-lg font-black text-rose-600">⚠️ عذراً، الكلية المطلوبة غير موجودة بنظام جامعة إب حالياً!</h2>
+        <h2 className="text-lg font-black text-rose-600">{t('collegeNotFound')}</h2>
         <Link href="/departments" className="mt-4 text-xs font-black bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-md">
-          العودة لدليل الكليات الرئيسي
+          {t('backToDepartments')}
         </Link>
       </div>
     );
@@ -386,7 +388,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
             className="text-xs font-black text-indigo-600 hover:text-indigo-700 bg-white border border-slate-200 hover:border-indigo-300 px-4 py-2.5 rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <ArrowRight className="w-4 h-4" />
-            <span>العودة لدليل الكليات الرئيسي</span>
+            <span>{t('backToDepartments')}</span>
           </Link>
           
           <div className="flex items-center gap-2 text-[10px] font-mono bg-white/60 text-slate-400 border px-3 py-1.5 rounded-xl font-bold select-none">
@@ -400,7 +402,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
           <div className="space-y-2 relative z-10 text-right">
             <div className="flex items-center gap-2 text-sky-400 font-black text-xs uppercase tracking-wider">
               <Sparkles className="w-4 h-4" />
-              <span>أقسام جامعة إب المعتمدة رسمياً</span>
+              <span>{t('accreditedDeptsBadge')}</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">{college.name}</h1>
             <p className="text-xs text-slate-300 font-medium max-w-xl leading-relaxed">
@@ -443,11 +445,11 @@ export default function CollegeDetailPage({ params }: { params: any }) {
                   </div>
                   <div className="text-right">
                     <h2 className="text-sm font-black text-slate-900">{currentDept.name}</h2>
-                    <p className="text-[10px] text-slate-400 font-mono">القسم: {currentDept.headOfDept}</p>
+                    <p className="text-[10px] text-slate-400 font-mono">{t('headOfDeptLabel')} {currentDept.headOfDept}</p>
                   </div>
                 </div>
                 <p className="text-xs text-slate-600 font-bold leading-relaxed text-right">
-                  يركز تخصص {currentDept.name} بجامعة إب على إكساب الطالب المهارات النظرية والتطبيقية اللازمة لمواكبة احتياجات سوق العمل وتحقيق الريادة والتميز في هذا المجال.
+                  {t('deptOverviewText', { deptName: currentDept.name })}
                 </p>
               </div>
 
@@ -455,7 +457,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
                 <div className="absolute w-24 h-24 rounded-full bg-indigo-500/10 blur-2xl top-0 left-0 pointer-events-none" />
                 <div className="flex items-center gap-2 text-indigo-400 border-b border-slate-800 pb-3 justify-start">
                   <Briefcase className="w-4 h-4" />
-                  <h3 className="text-xs font-black">أين سيعمل خريج هذا القسم؟</h3>
+                  <h3 className="text-xs font-black">{t('careerOpportunitiesHeading')}</h3>
                 </div>
                 <ul className="space-y-2 text-right">
                   {college.careerPaths.map((career: string, idx: number) => (
@@ -473,7 +475,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-4 border-slate-200">
                   <div className="flex items-center gap-2 justify-start">
                     <Layers className="w-4 h-4 text-indigo-600" />
-                    <h3 className="text-xs font-black text-slate-900">الخطة الدراسية المعتمدة والتفاعلية للأعوام الدراسية</h3>
+                    <h3 className="text-xs font-black text-slate-900">{t('studyPlanHeading')}</h3>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1 select-none justify-end">
@@ -487,7 +489,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
                             : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
                         }`}
                       >
-                        مستوى {lvl}
+                        {t('levelTab', { lvl })}
                       </button>
                     ))}
                   </div>
@@ -507,23 +509,23 @@ export default function CollegeDetailPage({ params }: { params: any }) {
                             {course.code}
                           </span>
                           <span className="text-[10px] font-black text-indigo-600 group-hover/course:translate-x-[-4px] transition-transform flex items-center gap-1">
-                            <span>معاينة المنهج</span>
+                            <span>{t('previewCurriculum')}</span>
                             <ArrowRight className="w-3 h-3 rotate-180" />
                           </span>
                         </div>
                         <div>
                           <h4 className="font-black text-xs text-slate-900 line-clamp-1">{course.name}</h4>
                           <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-slate-400">
-                            <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {course.hours} ساعات معتمدة</span>
+                            <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {course.hours} {t('creditHoursUnit')}</span>
                             <span>•</span>
-                            <span>المتطلب: {course.preren}</span>
+                            <span>{t('prerequisiteLabel')} {course.preren}</span>
                           </div>
                         </div>
                       </button>
                     ))
                   ) : (
                     <div className="col-span-2 text-center py-6 text-slate-400 font-bold text-xs">
-                      📖 المناهج المتبقية قيد المراجعة والاعتماد الفوري من مجلس الجامعة الأكاديمي.
+                      {t('pendingCurricula')}
                     </div>
                   )}
                 </div>
@@ -533,7 +535,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
                 <div className="border border-white/60 bg-white/50 backdrop-blur-xl rounded-3xl p-6 shadow-sm space-y-6">
                   <div className="flex items-center gap-2 border-b pb-4 border-slate-200 justify-start">
                     <Award className="w-4 h-4 text-emerald-600" />
-                    <h3 className="text-xs font-black text-slate-900">أبرز مشاريع التخرج المعتمدة بالقسم (لوحة شرف الخريجين)</h3>
+                    <h3 className="text-xs font-black text-slate-900">{t('topGradProjects')}</h3>
                   </div>
 
                   <div className="space-y-4">
@@ -544,7 +546,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
                       >
                         {activeTab === 'computer-control' && idx === 0 && (
                           <span className="absolute top-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[8px] font-black px-3 py-1.5 rounded-br-2xl shadow-sm uppercase select-none animate-pulse">
-                            ⭐ مـشـروع قـيـادي مـمـتـاز
+                            {t('distinguishedProjectBadge')}
                           </span>
                         )}
 
@@ -553,7 +555,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
                             <FileText className="w-4 h-4 text-indigo-600" />
                             <span>{project.title}</span>
                           </h4>
-                          <p className="text-[10px] font-black text-indigo-600">من تصميم: {project.designer}</p>
+                          <p className="text-[10px] font-black text-indigo-600">{t('designedBy')} {project.designer}</p>
                         </div>
 
                         <p className="text-xs text-slate-500 font-semibold leading-relaxed text-right">
@@ -567,7 +569,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
             </div>
           </div>
         ) : (
-          <div className="text-center py-12 text-slate-400 font-bold">📭 لا يوجد تخصصات متوفرة حالياً في هذه الكلية.</div>
+          <div className="text-center py-12 text-slate-400 font-bold">{t('noDeptsAvailable')}</div>
         )}
       </div>
 
@@ -581,11 +583,11 @@ export default function CollegeDetailPage({ params }: { params: any }) {
                 </div>
                 <div className="text-right">
                   <h4 className="text-xs font-black">{selectedCourse.name}</h4>
-                  <p className="text-[10px] text-slate-400 font-mono">رقم المادة: {selectedCourse.code} // IBB UNI</p>
+                  <p className="text-[10px] text-slate-400 font-mono">{t('courseCodeLabel', { code: selectedCourse.code })}</p>
                 </div>
               </div>
               <button 
-                type="button"
+                type="button" 
                 onClick={() => setSelectedCourse(null)}
                 className="p-2 rounded-xl bg-white/5 hover:bg-rose-600/20 hover:text-rose-400 text-slate-400 transition-all cursor-pointer"
               >
@@ -596,17 +598,17 @@ export default function CollegeDetailPage({ params }: { params: any }) {
             <div className="p-6 space-y-4 text-right">
               <div className="grid grid-cols-2 gap-4 text-xs font-bold text-slate-500 select-none">
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <p className="text-[10px] text-slate-400 font-black">الساعات المعتمدة:</p>
-                  <p className="text-xs font-black text-[#0A2540] mt-0.5">{selectedCourse.hours} ساعات دراسية</p>
+                  <p className="text-[10px] text-slate-400 font-black">{t('modalHoursLabel')}</p>
+                  <p className="text-xs font-black text-[#0A2540] mt-0.5">{selectedCourse.hours} {t('studyHoursUnit')}</p>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <p className="text-[10px] text-slate-400 font-black">المتطلب السابق للمادة:</p>
-                  <p className="text-xs font-black text-indigo-600 mt-0.5">{selectedCourse.preren}</p>
+                  <p className="text-[10px] text-slate-400 font-black">{t('modalPrerequisiteLabel')}</p>
+                  <p className="text-xs font-black text-indigo-600 mt-0.5">{selectedCourse.prerequisite}</p>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <h5 className="text-[10px] font-black text-slate-400 select-none">توصيف ونهج المادة الدراسي:</h5>
+                <h5 className="text-[10px] font-black text-slate-400 select-none">{t('modalCourseDescLabel')}</h5>
                 <p className="text-xs text-slate-600 font-semibold leading-relaxed">
                   {selectedCourse.desc}
                 </p>
@@ -619,7 +621,7 @@ export default function CollegeDetailPage({ params }: { params: any }) {
                 onClick={() => setSelectedCourse(null)}
                 className="bg-[#0A2540] hover:opacity-95 text-white text-xs font-black px-5 py-2.5 rounded-xl shadow-sm cursor-pointer transition-all active:scale-95"
               >
-                فهمت المنهج بالكامل
+                {t('modalCloseBtn')}
               </button>
             </div>
           </div>

@@ -1,56 +1,41 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
 
-// 📊 البيانات الرسمية المطابقة لجداول Supabase الخاصة بك بالملّي
-const COLLEGES = [
-  { co_id: 1, name: 'كلية الهندسة' },
-  { co_id: 2, name: 'كلية الطب والعلوم الصحية' },
-  { co_id: 3, name: 'كلية طب الأسنان' },
-  { co_id: 4, name: 'كلية الشريعة والقانون' },
-  { co_id: 5, name: 'كلية التجارة والاقتصاد' }
+// 📊 البيانات الرسمية المطابقة لجداول Supabase
+const COLLEGES_DATA = [
+  { co_id: 1 },
+  { co_id: 2 },
+  { co_id: 3 },
+  { co_id: 4 },
+  { co_id: 5 }
 ];
 
-const DEPARTMENTS: Record<number, { dep_id: number, name: string }[]> = {
-  1: [
-    { dep_id: 1, name: 'هندسة الحاسبات والتحكم' },
-    { dep_id: 2, name: 'الهندسة المدنية' },
-    { dep_id: 3, name: 'الهندسة المعمارية' },
-    { dep_id: 4, name: 'هندسة الاتصالات' }
-  ],
-  2: [
-    { dep_id: 5, name: 'الطب البشري' },
-    { dep_id: 6, name: 'المختبرات الطبية' },
-    { dep_id: 7, name: 'التمريض' }
-  ],
-  3: [
-    { dep_id: 8, name: 'طب وجراحة الفم والأسنان' }
-  ],
-  4: [
-    { dep_id: 9, name: 'الشريعة والقانون' }
-  ],
-  5: [
-    { dep_id: 10, name: 'إدارة الأعمال' },
-    { dep_id: 11, name: 'المحاسبة' },
-    { dep_id: 12, name: 'العلوم المالية والمصرفية' }
-  ]
+const DEPARTMENTS_DATA: Record<number, { dep_id: number }[]> = {
+  1: [{ dep_id: 1 }, { dep_id: 2 }, { dep_id: 3 }, { dep_id: 4 }],
+  2: [{ dep_id: 5 }, { dep_id: 6 }, { dep_id: 7 }],
+  3: [{ dep_id: 8 }],
+  4: [{ dep_id: 9 }],
+  5: [{ dep_id: 10 }, { dep_id: 11 }, { dep_id: 12 }]
 };
 
-const ALL_LEVELS = [
-  { id: 1, name: 'المستوى الاول' },
-  { id: 2, name: 'المستوى الثاني' },
-  { id: 3, name: 'المستوى الثالث' },
-  { id: 4, name: 'المستوى الرابع' },
-  { id: 5, name: 'المستوى الخامس' },
-  { id: 6, name: 'المستوى السادس' },
-  { id: 7, name: 'المستوى السابع' }
+const ALL_LEVELS_DATA = [
+  { id: 1 },
+  { id: 2 },
+  { id: 3 },
+  { id: 4 },
+  { id: 5 },
+  { id: 6 },
+  { id: 7 }
 ];
 
 function RegistrationDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations('RegistrationDetails');
   
   // 🎯 قراءة الرول المختار سابقاً تلقائياً من الرابط بعد إتمام التحقق من البريد
   const roleParam = searchParams.get('role');
@@ -103,7 +88,7 @@ function RegistrationDetailsContent() {
       maxLevel = 5; // طب الأسنان 5 سنوات
     }
 
-    return ALL_LEVELS.filter(level => level.id <= maxLevel);
+    return ALL_LEVELS_DATA.filter(level => level.id <= maxLevel);
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -112,15 +97,15 @@ function RegistrationDetailsContent() {
     setNotification(null);
 
     if (!selectedCollege) {
-      setNotification({ type: 'error', msg: "⚠️ نظام الأمان: يرجى تحديد الكلية أولاً." });
+      setNotification({ type: 'error', msg: t('errSelectCollege') });
       setIsLoading(false); return;
     }
     if (currentRole === 'student' && !selectedDepartment) {
-      setNotification({ type: 'error', msg: "⚠️ نظام الأمان: يرجى تحديد القسم الأكاديمي المخصص لك." });
+      setNotification({ type: 'error', msg: t('errSelectDept') });
       setIsLoading(false); return;
     }
     if (currentRole === 'student' && !selectedLevel) {
-      setNotification({ type: 'error', msg: "⚠️ نظام الأمان: يرجى تحديد المستوى الدراسي الحالي." });
+      setNotification({ type: 'error', msg: t('errSelectLevel') });
       setIsLoading(false); return;
     }
 
@@ -134,7 +119,7 @@ function RegistrationDetailsContent() {
 
       if (userCheckErr) throw userCheckErr;
       if (userExists) {
-        setNotification({ type: 'error', msg: "❌ رفض النظام: اسم المستخدم هذا (Username) مسجل مسبقاً! اختر اسماً آخر." });
+        setNotification({ type: 'error', msg: t('errUserExists') });
         setIsLoading(false); return;
       }
 
@@ -148,7 +133,7 @@ function RegistrationDetailsContent() {
 
         if (studentCheckErr) throw studentCheckErr;
         if (studentExists) {
-          setNotification({ type: 'error', msg: `❌ رفض النظام: الرقم الجامعي (${academicId}) مسجل بالفعل لطالب آخر مسبقاً!` });
+          setNotification({ type: 'error', msg: t('errStudentExists', { id: academicId }) });
           setIsLoading(false); return;
         }
       } else {
@@ -160,9 +145,7 @@ function RegistrationDetailsContent() {
 
         if (instCheckErr) throw instCheckErr;
         if (instructorExists) {
-          setNotification({ type: 'error', msg: `❌ رفض النظام: المعرف الوظيفي (${academicId}) مسجل بالفعل لعضو هيئة تدريس آخر مسبقاً!` });
-
-          
+          setNotification({ type: 'error', msg: t('errFacultyExists', { id: academicId }) });
           setIsLoading(false); return;
         }
       }
@@ -214,35 +197,35 @@ function RegistrationDetailsContent() {
         if (instructorError) throw instructorError;
       }
 
-      setNotification({ type: 'success', msg: "🎉 تم توثيق وحفظ بياناتك بنجاح، وبانتظار موافقة الإدارة الفورية." });
+      setNotification({ type: 'success', msg: t('successRegistration') });
      
-setTimeout(() => {
-  // التوجيه للواجهة المخصصة بناءً على رتبة الحساب المسجل
-  if (currentRole=== 'instructor') {
-    router.push('/login/academic'); // 👈 يفتح مباشرة شاشة دخول الأكاديميين
-  } else {
-    router.push('/login/student');  // 👈 يفتح شاشة دخول الطلاب
-  }
-}, 3500);
+      setTimeout(() => {
+        // التوجيه للواجهة المخصصة بناءً على رتبة الحساب المسجل
+        if (currentRole === 'instructor') {
+          router.push('/login/academic');
+        } else {
+          router.push('/login/student');
+        }
+      }, 3500);
 
     } catch (err: any) {
       console.error(err);
       if (err.code === '23505') {
-        setNotification({ type: 'error', msg: "❌ خطأ تعارض: البيانات الشخصية أو المعرفات المدخلة متواجدة مسبقاً بالسيرفر!" });
+        setNotification({ type: 'error', msg: t('errConflict') });
       } else {
-        setNotification({ type: 'error', msg: "🚨 عذراً، واجه النظام خطأ تقني غير متوقع أثناء معالجة البيانات." });
+        setNotification({ type: 'error', msg: t('errGeneric') });
       }
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-[#030712] text-slate-200 min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-4 md:p-8" dir="rtl">
+    <div className="bg-[#030712] text-slate-200 min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-4 md:p-8">
       
       {/* التوهج الخلفي المخصص حسب الرول المحدد سلفاً */}
       <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.015)_0%,transparent_70%)]" />
-      <div className={`absolute w-[450px] h-[450px] rounded-full blur-[140px] top-[-5%] right-[-5%] ${currentRole === 'student' ? 'bg-emerald-500/5' : 'bg-blue-600/5'}`} />
-      <div className={`absolute w-[450px] h-[450px] rounded-full blur-[140px] bottom-[-5%] left-[-5%] ${currentRole === 'student' ? 'bg-teal-500/5' : 'bg-indigo-600/5'}`} />
+      <div className={`absolute w-[450px] h-[450px] rounded-full blur-[140px] top-[-5%] end-[-5%] ${currentRole === 'student' ? 'bg-emerald-500/5' : 'bg-blue-600/5'}`} />
+      <div className={`absolute w-[450px] h-[450px] rounded-full blur-[140px] bottom-[-5%] start-[-5%] ${currentRole === 'student' ? 'bg-teal-500/5' : 'bg-indigo-600/5'}`} />
 
       {/* التوست الذكي للرسائل */}
       {notification && (
@@ -279,69 +262,71 @@ setTimeout(() => {
             )}
           </div>
           <h2 className="text-2xl font-black text-white tracking-tight">
-            {currentRole === 'student' ? 'إنشاء ملف طالب جامعي جديد' : 'إنشاء ملف عضو هيئة التدريس'}
+            {currentRole === 'student' ? t('studentHeaderTitle') : t('facultyHeaderTitle')}
           </h2>
-          <p className="text-xs text-slate-400 mt-2 font-medium">بوابة جامعة إب الذكية • إدخال وتوثيق البيانات الحصري</p>
+          <p className="text-xs text-slate-400 mt-2 font-medium">{t('headerSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmitForm} className="space-y-5">
           
           {/* الاسم */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-2 mr-1">الاسم الرباعي الكامل (كما هو مسجل بالوثائق)</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-2 px-1">{t('nameLabel')}</label>
             <input 
               type="text" value={name} onChange={(e) => setName(e.target.value)} required
               className="w-full bg-slate-950/50 border border-slate-800/80 rounded-xl px-4 py-3.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all"
-              placeholder="أدخل اسمك الرباعي هنا"
+              placeholder={t('namePlaceholder')}
             />
           </div>
 
           {/* المعرف المالي / الأكاديمي */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-2 mr-1">
-              {currentRole === 'student' ? 'الرقم الجامعي المقيد' : 'المعرف الوظيفي الأكاديمي (ID)'}
+            <label className="block text-xs font-semibold text-slate-400 mb-2 px-1">
+              {currentRole === 'student' ? t('studentIdLabel') : t('facultyIdLabel')}
             </label>
             <input 
               type="text" value={academicId} onChange={(e) => setAcademicId(e.target.value)} required
               className="w-full bg-slate-950/50 border border-slate-800/80 rounded-xl px-4 py-3.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all"
-              placeholder={currentRole === 'student' ? "مثال: 2270190" : "أدخل رقمك الوظيفي الرسمي"}
+              placeholder={currentRole === 'student' ? t('studentIdPlaceholder') : t('facultyIdPlaceholder')}
             />
           </div>
 
           {/* اسم المستخدم */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-2 mr-1">اسم المستخدم الخاص بالحساب (Username)</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-2 px-1">{t('usernameLabel')}</label>
             <input 
               type="text" value={username} onChange={(e) => setUsername(e.target.value)} required
-              className="w-full bg-slate-950/50 border border-slate-800/80 rounded-xl px-4 py-3.5 text-sm text-indigo-300 tracking-wide font-mono text-left focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all"
-              placeholder="e.g., mohammed_sh"
+              className="w-full bg-slate-950/50 border border-slate-800/80 rounded-xl px-4 py-3.5 text-sm text-indigo-300 tracking-wide font-mono text-start focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all"
+              placeholder={t('usernamePlaceholder')}
               dir="ltr"
             />
           </div>
 
           {/* كلمة المرور */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-2 mr-1">كلمة المرور الحصينة</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-2 px-1">{t('passwordLabel')}</label>
             <input 
               type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6}
               className="w-full bg-slate-950/50 border border-slate-800/80 rounded-xl px-4 py-3.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all tracking-widest"
-              placeholder="••••••••••••"
+              placeholder={t('passwordPlaceholder')}
             />
           </div>
 
           {/* 🏢 اختيار الكلية */}
           <div className="relative">
-            <label className="block text-xs font-semibold text-slate-400 mb-2 mr-1">الكلية التابع لها بجامعة إب</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-2 px-1">{t('collegeLabel')}</label>
             <select 
               value={selectedCollege} onChange={handleCollegeChange} required
               className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl px-4 py-3.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500/50 appearance-none cursor-pointer"
             >
-              <option value="" disabled>-- انقر لتحديد الكلية --</option>
-              {COLLEGES.map(college => (
-                <option key={college.co_id} value={college.co_id} className="bg-[#0b1120] text-slate-200">{college.name}</option>
+              <option value="" disabled>{t('collegeSelectPlaceholder')}</option>
+              {COLLEGES_DATA.map(college => (
+                <option key={college.co_id} value={college.co_id} className="bg-[#0b1120] text-slate-200">
+                  {t(`colleges.${college.co_id}` as any)}
+                </option>
               ))}
             </select>
-            <div className="absolute left-4 bottom-4 pointer-events-none text-slate-500">
+            <div className="absolute end-4 bottom-4 pointer-events-none text-slate-500">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
             </div>
           </div>
@@ -349,17 +334,19 @@ setTimeout(() => {
           {/* 🏫 الأقسام (تظهر حصرياً للطلاب فقط) */}
           {currentRole === 'student' && selectedCollege && (
             <div className="animate-in fade-in slide-in-from-top-3 duration-300 relative">
-              <label className="block text-xs font-semibold text-slate-400 mb-2 mr-1">القسم الأكاديمي التخصيصي</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-2 px-1">{t('departmentLabel')}</label>
               <select 
                 value={selectedDepartment} onChange={handleDepartmentChange} required
                 className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl px-4 py-3.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500/50 appearance-none cursor-pointer"
               >
-                <option value="" disabled>-- انقر لتحديد تخصصك الدقيق --</option>
-                {DEPARTMENTS[parseInt(selectedCollege)]?.map(dept => (
-                  <option key={dept.dep_id} value={dept.dep_id} className="bg-[#0b1120] text-slate-200">{dept.name}</option>
+                <option value="" disabled>{t('departmentSelectPlaceholder')}</option>
+                {DEPARTMENTS_DATA[parseInt(selectedCollege)]?.map(dept => (
+                  <option key={dept.dep_id} value={dept.dep_id} className="bg-[#0b1120] text-slate-200">
+                    {t(`departments.${dept.dep_id}` as any)}
+                  </option>
                 ))}
               </select>
-              <div className="absolute left-4 bottom-4 pointer-events-none text-slate-500">
+              <div className="absolute end-4 bottom-4 pointer-events-none text-slate-500">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
               </div>
             </div>
@@ -368,19 +355,21 @@ setTimeout(() => {
           {/* 🎓 المستوى (يظهر حصرياً للطلاب فقط ومفلتر بدقة حسب الكلية والتخصص) */}
           {currentRole === 'student' && selectedCollege && selectedDepartment && (
             <div className="animate-in fade-in slide-in-from-top-3 duration-300 relative">
-              <label className="block text-xs font-semibold text-slate-400 mb-2 mr-1">المستوى الدراسي المقيد به حالياً</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-2 px-1">{t('levelLabel')}</label>
               <select 
                 value={selectedLevel} 
                 onChange={(e) => setSelectedLevel(e.target.value)} 
                 required
                 className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl px-4 py-3.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500/50 appearance-none cursor-pointer"
               >
-                <option value="" disabled>-- حدد مستواك الجامعي الحالي --</option>
+                <option value="" disabled>{t('levelSelectPlaceholder')}</option>
                 {getFilteredLevels().map(level => (
-                  <option key={level.id} value={level.id} className="bg-[#0b1120] text-slate-200">{level.name}</option>
+                  <option key={level.id} value={level.id} className="bg-[#0b1120] text-slate-200">
+                    {t(`levels.${level.id}` as any)}
+                  </option>
                 ))}
               </select>
-              <div className="absolute left-4 bottom-4 pointer-events-none text-slate-500">
+              <div className="absolute end-4 bottom-4 pointer-events-none text-slate-500">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
               </div>
             </div>
@@ -404,10 +393,10 @@ setTimeout(() => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  <span>جاري التحقق من جدار الحماية والأمن...</span>
+                  <span>{t('submitting')}</span>
                 </>
               ) : (
-                "توثيق البيانات وإرسال الملف"
+                t('submitBtn')
               )}
             </span>
           </button>
@@ -418,10 +407,12 @@ setTimeout(() => {
 }
 
 export default function RegistrationDetailsPage() {
+  const t = useTranslations('RegistrationDetails');
+
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-400 font-medium text-sm tracking-wide" dir="rtl">
-        ⚡ جاري تشغيل جدار الحماية وأمن خوادم منصة إب...
+      <div className="min-h-screen bg-[#030712] flex items-center justify-center text-slate-400 font-medium text-sm tracking-wide">
+        {t('fallback')}
       </div>
     }>
       <RegistrationDetailsContent />

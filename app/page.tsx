@@ -3,7 +3,9 @@
 import React, { useRef } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion'; 
-import AdsSlider from './components/AdsSlider'; // 👈 استدعاء مكون الإعلانات المستقل
+import { useTranslations } from 'next-intl'; // 👈 استدعاء خطاف الترجمة الرسمي
+import AdsSlider from './components/AdsSlider'; 
+import LanguageSwitcher from './components/LanguageSwitcher'; // 👈 استدعاء زر تبديل اللغة
 import { 
   GraduationCap, 
   Scale, 
@@ -16,47 +18,53 @@ import {
   Building2 
 } from 'lucide-react';
 
-const platformCards = [
-  {
-    title: "محرك المكتبة الذكية",
-    desc: "البحث الدلالي المعزز بالذكاء الاصطناعي في المراجع العلمية",
-    href: "/login?type=student&dest=/student/library", 
-    bgImage: "url('https://images.unsplash.com/photo-1521587760476-6c12a4b040da?q=80&w=400')",
-    hoverGlow: "hover:shadow-[0_20px_40px_rgba(14,165,233,0.25)] hover:border-sky-500/60",
-    themeColor: "from-sky-500 to-blue-600",
-    icon: BookOpen
-  },
-  {
-    title: "بوابة الكادر التدريسي",
-    desc: "منصة أعضاء هيئة التدريس لإدارة المساقات وتقييم الطلاب",
-    href: "/login?type=faculty&dest=/faculty",
-    bgImage: "url('https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=400')",
-    hoverGlow: "hover:shadow-[0_20px_40px_rgba(99,102,241,0.25)] hover:border-indigo-500/60",
-    themeColor: "from-indigo-500 to-purple-600",
-    icon: UserCheck
-  },
-  {
-    title: "شؤون وثائق الطلاب",
-    desc: "استعراض السجلات الأكاديمية والمعدلات التراكمية الفورية",
-    href: "/login?type=student&dest=/student",
-    bgImage: "url('https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=400')",
-    hoverGlow: "hover:shadow-[0_20px_40px_rgba(59,130,246,0.25)] hover:border-blue-500/60",
-    themeColor: "from-blue-500 to-indigo-600",
-    icon: FileText
-  },
-  {
-    title: "أقسام الجامعة",
-    desc: "دليل استعراض التخصصات الأكاديمية والفروع الهندسية المتقدمة",
-    href: "/departments",
-    bgImage: "url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=400')",
-    hoverGlow: "hover:shadow-[0_20px_40px_rgba(148,163,184,0.25)] hover:border-slate-400/60",
-    themeColor: "from-slate-500 to-slate-700",
-    icon: Building2
-  }
-];
-
 export default function HomePage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // 🌐 استدعاء نصوص الترجمة بحسب الأقسام المحددة في ملفات الـ JSON
+  const tHeader = useTranslations('Header');
+  const tHome = useTranslations('Home');
+  const tPortals = useTranslations('Portals');
+
+  // 🗂️ بطاقات المنظومة مترجمة ديناميكياً مع الحفاظ على الروابط والتنسيقات
+  const platformCards = [
+    {
+      title: tPortals('libraryTitle'),
+      desc: tPortals('libraryDesc'),
+      href: "/login?type=student&dest=/student/library", 
+      bgImage: "url('https://images.unsplash.com/photo-1521587760476-6c12a4b040da?q=80&w=400')",
+      hoverGlow: "hover:shadow-[0_20px_40px_rgba(14,165,233,0.25)] hover:border-sky-500/60",
+      themeColor: "from-sky-500 to-blue-600",
+      icon: BookOpen
+    },
+    {
+      title: tPortals('facultyTitle'),
+      desc: tPortals('facultyDesc'),
+      href: "/login?type=faculty&dest=/faculty",
+      bgImage: "url('https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=400')",
+      hoverGlow: "hover:shadow-[0_20px_40px_rgba(99,102,241,0.25)] hover:border-indigo-500/60",
+      themeColor: "from-indigo-500 to-purple-600",
+      icon: UserCheck
+    },
+    {
+      title: tPortals('studentsTitle'),
+      desc: tPortals('studentsDesc'),
+      href: "/login?type=student&dest=/student",
+      bgImage: "url('https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=400')",
+      hoverGlow: "hover:shadow-[0_20px_40px_rgba(59,130,246,0.25)] hover:border-blue-500/60",
+      themeColor: "from-blue-500 to-indigo-600",
+      icon: FileText
+    },
+    {
+      title: tPortals('departmentsTitle'),
+      desc: tPortals('departmentsDesc'),
+      href: "/departments",
+      bgImage: "url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=400')",
+      hoverGlow: "hover:shadow-[0_20px_40px_rgba(148,163,184,0.25)] hover:border-slate-400/60",
+      themeColor: "from-slate-500 to-slate-700",
+      icon: Building2
+    }
+  ];
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -69,7 +77,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#E6ECEB] text-slate-800 flex flex-col justify-between p-4 md:p-6 font-sans relative overflow-hidden" dir="rtl">
+    <div className="min-h-screen bg-[#E6ECEB] text-slate-800 flex flex-col justify-between p-4 md:p-6 font-sans relative overflow-hidden">
       
       {/* 🏛️ نظام الهالات والخلفية لجامعة إب */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -85,43 +93,49 @@ export default function HomePage() {
         />
       </div>
 
-      {/* 🏛️ 1. الشريط العلوي الثابت مع زر إنشاء الحساب التفاعلي */}
+      {/* 🏛️ 1. الشريط العلوي الثابت مع زر تحويل اللغة وزر إنشاء الحساب */}
       <header className="w-full bg-gradient-to-r from-[#0A2540] via-[#0E3354] to-[#0F5E49] text-white px-6 py-4 flex justify-between items-center relative z-10 rounded-2xl shadow-xl border border-white/10 backdrop-blur-md select-none">
         <div className="flex items-center gap-3">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_15px_#34d399]" />
           <h1 className="text-sm md:text-base font-black tracking-wide text-slate-50 flex items-center gap-2">
-            منصة جامعة إب الذكية الشاملة <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-black">SECURE CORE</span>
+            {tHeader('platformName')} <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-black">{tHeader('secureCore')}</span>
           </h1>
         </div>
 
-        {/* 🚪 زر إنشاء حساب التفاعلي */}
-        <Link 
-          href="/login/register" 
-          className="group relative flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/30 hover:bg-black/50 border border-white/10 hover:border-emerald-500/50 text-slate-200 hover:text-white transition-all duration-300 shadow-inner backdrop-blur-md select-none"
-          title="إنشاء حساب جديد"
-        >
-          <span className="text-xs font-bold tracking-wide text-emerald-300 group-hover:text-emerald-200 transition-colors">
-            إنشاء حساب
-          </span>
-          <div className="relative w-5 h-5 flex items-center justify-center">
-            <svg 
-              className="w-5 h-5 text-emerald-400" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="1.8" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            >
-              <path d="M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" className="text-slate-400 group-hover:text-emerald-400 transition-colors duration-300" />
-              <path d="M13 4v16" className="origin-left transform group-hover:-rotate-45 group-hover:translate-x-1 transition-transform duration-300 ease-out text-emerald-400" />
-              <g className="transform group-hover:translate-x-1.5 transition-transform duration-300 ease-out">
-                <circle cx="5" cy="8" r="1.5" className="fill-emerald-400 stroke-none" />
-                <path d="M3 17c0-2 1.5-3.5 3.5-3.5S10 15 10 17" className="text-emerald-400" />
-              </g>
-            </svg>
-          </div>
-        </Link>
+        {/* 🌐 أزرار التحكم باللغة وإنشاء الحساب */}
+        <div className="flex items-center gap-3">
+          {/* زر تبديل اللغة */}
+          <LanguageSwitcher />
+
+          {/* 🚪 زر إنشاء حساب التفاعلي */}
+          <Link 
+            href="/login/register" 
+            className="group relative flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/30 hover:bg-black/50 border border-white/10 hover:border-emerald-500/50 text-slate-200 hover:text-white transition-all duration-300 shadow-inner backdrop-blur-md select-none"
+            title={tHeader('createAccount')}
+          >
+            <span className="text-xs font-bold tracking-wide text-emerald-300 group-hover:text-emerald-200 transition-colors">
+              {tHeader('createAccount')}
+            </span>
+            <div className="relative w-5 h-5 flex items-center justify-center">
+              <svg 
+                className="w-5 h-5 text-emerald-400" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="1.8" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" className="text-slate-400 group-hover:text-emerald-400 transition-colors duration-300" />
+                <path d="M13 4v16" className="origin-left transform group-hover:-rotate-45 group-hover:translate-x-1 transition-transform duration-300 ease-out text-emerald-400" />
+                <g className="transform group-hover:translate-x-1.5 transition-transform duration-300 ease-out">
+                  <circle cx="5" cy="8" r="1.5" className="fill-emerald-400 stroke-none" />
+                  <path d="M3 17c0-2 1.5-3.5 3.5-3.5S10 15 10 17" className="text-emerald-400" />
+                </g>
+              </svg>
+            </div>
+          </Link>
+        </div>
       </header>
 
       {/* 🖼️ 2. استدعاء سلايدر إعلانات الجامعة المستقل */}
@@ -143,12 +157,12 @@ export default function HomePage() {
             <div className="w-12 h-12 bg-[#0A2540]/5 border border-[#0A2540]/10 rounded-2xl flex items-center justify-center shadow-inner">
               <ShieldCheck className="w-6 h-6 text-[#0F5E49]" />
             </div>
-            <div className="space-y-2 text-right">
+            <div className="space-y-2 text-start">
               <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">
-                مرحباً بك في الكنترول المركزي لجامعة إب!
+                {tHome('welcomeTitle')}
               </h2>
               <p className="text-xs font-bold leading-relaxed text-slate-500">
-                ابدأ عملية الرصد السيادية للمواد وتصفح بوابات المنظومة الرقمية الشاملة بكل أمان وسرعة.
+                {tHome('welcomeDesc')}
               </p>
             </div>
           </div>
@@ -156,15 +170,15 @@ export default function HomePage() {
           <div className="flex items-center gap-4 pt-4 border-t border-slate-900/5 mt-4">
             <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded-xl px-2.5 py-1.5 shadow-sm">
               <GraduationCap className="w-4 h-4 text-emerald-600" />
-              <span className="text-[10px] font-black text-emerald-950">أكاديمي</span>
+              <span className="text-[10px] font-black text-emerald-950">{tHome('academicBtn')}</span>
             </div>
             <div className="flex items-center gap-1.5 bg-sky-50 border border-sky-100 rounded-xl px-2.5 py-1.5 shadow-sm">
               <Scale className="w-4 h-4 text-sky-600" />
-              <span className="text-[10px] font-black text-sky-950">سيادي</span>
+              <span className="text-[10px] font-black text-sky-950">{tHome('sovereignBtn')}</span>
             </div>
             <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 rounded-xl px-2.5 py-1.5 shadow-sm">
               <BarChart3 className="w-4 h-4 text-indigo-600" />
-              <span className="text-[10px] font-black text-indigo-950">تحليلي</span>
+              <span className="text-[10px] font-black text-indigo-950">{tHome('analyticalBtn')}</span>
             </div>
           </div>
         </motion.div>
@@ -176,12 +190,14 @@ export default function HomePage() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="flex-grow w-full border border-white bg-white/20 backdrop-blur-2xl rounded-3xl p-6 shadow-[0_30px_70px_rgba(0,0,0,0.03)] relative group overflow-hidden"
         >
-          <div className="text-right mb-5 mr-1 select-none flex items-center justify-between">
+          <div className="text-start mb-5 mr-1 select-none flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-3.5 rounded-full bg-[#0F5E49]" />
-              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">أجنحة وبوابات المنظومة الذكية المتاحة</span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">{tHome('portalsHeader')}</span>
             </div>
-            <div className="text-[9px] font-black bg-white/60 border text-slate-500 px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm font-mono"><ArrowLeftRight className="w-3 h-3" /> SCROLL MODE</div>
+            <div className="text-[9px] font-black bg-white/60 border text-slate-500 px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm font-mono">
+              <ArrowLeftRight className="w-3 h-3" /> {tHome('scrollMode')}
+            </div>
           </div>
 
           {/* أسهم التمرير الأفقي */}
@@ -251,6 +267,7 @@ export default function HomePage() {
         </motion.div>
       </main>
 
+      {/* التذييل السفلي */}
       <footer className="w-full py-4 text-center text-[10px] font-mono tracking-widest z-10 border border-white bg-white/80 backdrop-blur-md rounded-2xl shadow-sm select-none text-slate-400">
         IBB UNIVERSITY ACCREDITED PLATFORM SYSTEM NODE v3.0.0 // SECURE CENTRAL HUB
       </footer>

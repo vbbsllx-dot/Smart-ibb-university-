@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { 
   BookOpen, 
   GraduationCap, 
@@ -112,6 +113,9 @@ const getMaxLevels = (deptStringId: string | null): number => {
 };
 
 export default function PerfectHarmonizedLibrary() {
+  const t = useTranslations('LibraryHub');
+  const tGlobal = useTranslations('RegistrationDetails');
+
   const [time, setTime] = useState('');
   
   const [activeSection, setActiveSection] = useState<'books' | 'projects' | 'theses' | 'ai'>('books');
@@ -276,7 +280,7 @@ export default function PerfectHarmonizedLibrary() {
         <div className="flex items-center gap-3">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_15px_#34d399]" />
           <h1 className="text-sm md:text-base font-black tracking-wide text-slate-50 flex items-center gap-2">
-            المستودع المعرفي والبيئة المعمارية للمكتبة الرقمية <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-black">CORE LIBRARY</span>
+            {t('headerTitle')} <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-black">CORE LIBRARY</span>
           </h1>
         </div>
         <div className="flex items-center gap-4">
@@ -284,7 +288,7 @@ export default function PerfectHarmonizedLibrary() {
             {time || "00:00:00"}
           </div>
           <Link href="/" className="text-xs font-black bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 rounded-xl transition-all duration-300 shadow-sm flex items-center gap-1 text-white">
-            العودة للرئيسية ←
+            {t('backHome')}
           </Link>
         </div>
       </header>
@@ -296,15 +300,15 @@ export default function PerfectHarmonizedLibrary() {
         <div className="col-span-12 lg:col-span-3 flex flex-col justify-between gap-4 flex-shrink-0">
           <div className="flex flex-col gap-3">
             <div className="border border-white bg-white/80 backdrop-blur-xl rounded-2xl p-4 shadow-[0_10px_30px_rgba(0,0,0,0.01)]">
-              <span className="text-[10px] font-black text-emerald-700 block mb-1 uppercase tracking-wider">Library Index</span>
-              <h2 className="text-xs font-black text-slate-900">أجنحة وأقسام المكتبة الحية</h2>
+              <span className="text-[10px] font-black text-emerald-700 block mb-1 uppercase tracking-wider">{t('libraryIndex')}</span>
+              <h2 className="text-xs font-black text-slate-900">{t('sectionsTitle')}</h2>
             </div>
 
             {[
-              { id: 'books', title: 'مراجع وبحوث الكليات المعتمدة', desc: 'دليل الكليات التخصصية والمستويات الأكاديمية', icon: BookOpen },
-              { id: 'projects', title: 'مستودع مشاريع التخرج الهندسية', desc: 'أرشيف رقمي كامل لأبحاث ومشاريع التخرج', icon: FolderGit2 },
-              { id: 'theses', title: 'رسائل الماجستير والدكتوراه', desc: 'الأطروحات العلمية والبحوث العليا', icon: Scroll },
-              { id: 'ai', title: 'محرك الاستعلام المعزز الذكي (RAG)', desc: 'البحث الدلالي المتقدم بداخل ملفات الجامعة', icon: Sparkles }
+              { id: 'books', title: t('tabBooksTitle'), desc: t('tabBooksDesc'), icon: BookOpen },
+              { id: 'projects', title: t('tabProjectsTitle'), desc: t('tabProjectsDesc'), icon: FolderGit2 },
+              { id: 'theses', title: t('tabThesesTitle'), desc: t('tabThesesDesc'), icon: Scroll },
+              { id: 'ai', title: t('tabAiTitle'), desc: t('tabAiDesc'), icon: Sparkles }
             ].map((sec) => {
               const Icon = sec.icon;
               const isActive = activeSection === sec.id;
@@ -335,7 +339,7 @@ export default function PerfectHarmonizedLibrary() {
           <div className="border border-white bg-white/50 backdrop-blur-xl rounded-2xl p-4 shadow-sm space-y-2 hidden lg:block">
             <span className="text-[8.5px] font-mono font-black text-emerald-600 uppercase tracking-widest block animate-pulse">● DATABASE_CONNECTIVITY</span>
             <div className="text-[10px] font-bold text-slate-600 flex justify-between">
-              <span>حالة قاعدة البيانات الحقيقية:</span>
+              <span>{t('dbStatusLabel')}</span>
               <span className="font-mono text-emerald-700 font-black flex items-center gap-1"><Database className="w-3 h-3" /> LIVE_CONNECTED</span>
             </div>
           </div>
@@ -349,10 +353,10 @@ export default function PerfectHarmonizedLibrary() {
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-3.5 rounded-full bg-[#0F5E49] shadow-[0_0_8px_rgba(15,94,73,0.4)]" />
                 <h2 className="text-xs font-black uppercase text-slate-900 tracking-wide">
-                  {activeSection === 'books' && "بوابة الكتب الأكاديمية والمقومات الدراسية"}
-                  {activeSection === 'projects' && "مستودع أبحاث ومشاريع التخرج الهندسية"}
-                  {activeSection === 'theses' && "أرشيف الرسائل العلمية والأطروحات العليا"}
-                  {activeSection === 'ai' && "منظومة المحادثة والاستعلام الدلالي وفهرسة بطون الكتب RAG"}
+                  {activeSection === 'books' && t('sectionBooksHeading')}
+                  {activeSection === 'projects' && t('sectionProjectsHeading')}
+                  {activeSection === 'theses' && t('sectionThesesHeading')}
+                  {activeSection === 'ai' && t('sectionAiHeading')}
                 </h2>
               </div>
               <span className="text-[9px] font-mono tracking-widest border bg-white/80 text-slate-500 px-2 py-0.5 rounded-lg shadow-sm font-black">
@@ -365,33 +369,39 @@ export default function PerfectHarmonizedLibrary() {
               <div className="flex-grow flex flex-col justify-start">
                 <div className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 bg-white/60 p-2.5 rounded-xl border border-white shadow-sm transition-all duration-300">
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                    <span className="cursor-pointer hover:text-emerald-600 transition-colors font-black" onClick={() => { setSelectedCollege(null); setSelectedDept(null); setSelectedLevel(null); setResourceFilter('all'); }}>المكتبة الرئيسية</span>
+                    <span className="cursor-pointer hover:text-emerald-600 transition-colors font-black" onClick={() => { setSelectedCollege(null); setSelectedDept(null); setSelectedLevel(null); setResourceFilter('all'); }}>
+                      {t('mainLibrary')}
+                    </span>
                     
                     {selectedCollege && (
                       <>
                         <ArrowRight className="w-3 h-3 text-slate-400" />
-                        <span className="cursor-pointer hover:text-emerald-600 transition-colors font-black" onClick={() => { setSelectedDept(null); setSelectedLevel(null); setResourceFilter('all'); }}>{currentCollegeData?.name}</span>
+                        <span className="cursor-pointer hover:text-emerald-600 transition-colors font-black" onClick={() => { setSelectedDept(null); setSelectedLevel(null); setResourceFilter('all'); }}>
+                          {currentCollegeData?.name}
+                        </span>
                       </>
                     )}
                     {selectedDept && (
                       <>
                         <ArrowRight className="w-3 h-3 text-slate-400" />
-                        <span className="cursor-pointer hover:text-emerald-600 transition-colors font-black" onClick={() => { setSelectedLevel(null); setResourceFilter('all'); }}>{currentDeptData?.name}</span>
+                        <span className="cursor-pointer hover:text-emerald-600 transition-colors font-black" onClick={() => { setSelectedLevel(null); setResourceFilter('all'); }}>
+                          {tGlobal(`departments.${deptStringToIdMap[selectedDept]}` as any) || currentDeptData?.name}
+                        </span>
                       </>
                     )}
                     {selectedLevel && (
                       <>
                         <ArrowRight className="w-3 h-3 text-slate-400" />
-                        <span className="text-emerald-700 font-black">{levelNamesMap[selectedLevel]}</span>
+                        <span className="text-emerald-700 font-black">{tGlobal(`levels.${selectedLevel}` as any) || levelNamesMap[selectedLevel]}</span>
                       </>
                     )}
                   </div>
 
                   {selectedLevel && (
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-1 bg-white/95 border border-slate-200/80 p-1 rounded-xl shadow-inner select-none self-start sm:self-auto">
-                      <button type="button" onClick={() => setResourceFilter('accredited')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${resourceFilter === 'accredited' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-emerald-700 hover:bg-emerald-50'}`}><BookOpen className="w-3.5 h-3.5" /> <span>PDF كتب معتمدة</span></button>
-                      <button type="button" onClick={() => setResourceFilter('summary')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${resourceFilter === 'summary' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-500 hover:text-amber-700 hover:bg-amber-50'}`}><FileText className="w-3.5 h-3.5" /> <span>PDF ملخصات</span></button>
-                      <button type="button" onClick={() => setResourceFilter('video')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${resourceFilter === 'video' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-500 hover:text-blue-700 hover:bg-blue-50'}`}><PlayCircle className="w-3.5 h-3.5" /> <span>فيديوهات تعليمية</span></button>
+                      <button type="button" onClick={() => setResourceFilter('accredited')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${resourceFilter === 'accredited' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-emerald-700 hover:bg-emerald-50'}`}><BookOpen className="w-3.5 h-3.5" /> <span>{t('filterAccredited')}</span></button>
+                      <button type="button" onClick={() => setResourceFilter('summary')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${resourceFilter === 'summary' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-500 hover:text-amber-700 hover:bg-amber-50'}`}><FileText className="w-3.5 h-3.5" /> <span>{t('filterSummary')}</span></button>
+                      <button type="button" onClick={() => setResourceFilter('video')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${resourceFilter === 'video' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-500 hover:text-blue-700 hover:bg-blue-50'}`}><PlayCircle className="w-3.5 h-3.5" /> <span>{t('filterVideo')}</span></button>
                     </motion.div>
                   )}
                 </div>
@@ -399,7 +409,7 @@ export default function PerfectHarmonizedLibrary() {
                 <AnimatePresence mode="wait">
                   {!selectedCollege && (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
-                      {universityStructure.map((college) => {
+                      {universityStructure.map((college, cIdx) => {
                         const CollegeIcon = college.icon;
                         return (
                           <button key={college.id} onClick={() => setSelectedCollege(college.id)} className="bg-white/80 hover:bg-white border border-white hover:border-emerald-500/30 rounded-2xl p-5 text-right transition-all duration-300 group shadow-sm hover:shadow-md flex flex-col justify-between h-[130px] relative overflow-hidden cursor-pointer">
@@ -410,8 +420,10 @@ export default function PerfectHarmonizedLibrary() {
                               <span className="text-[8px] font-mono tracking-wider bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200">COLLEGE_NODE</span>
                             </div>
                             <div>
-                              <h3 className="text-xs font-black text-slate-900 group-hover:text-emerald-700 transition-colors">{college.name}</h3>
-                              <p className="text-[10px] text-slate-400 font-bold mt-1">اضغط لاستعراض تخصصات وأقسام الكلية الرقمية</p>
+                              <h3 className="text-xs font-black text-slate-900 group-hover:text-emerald-700 transition-colors">
+                                {tGlobal(`colleges.${cIdx + 1}` as any) || college.name}
+                              </h3>
+                              <p className="text-[10px] text-slate-400 font-bold mt-1">{t('collegeClickDesc')}</p>
                             </div>
                           </button>
                         );
@@ -425,8 +437,10 @@ export default function PerfectHarmonizedLibrary() {
                         <button key={dept.id} onClick={() => setSelectedDept(dept.id)} className="bg-white/80 hover:bg-white border border-white hover:border-sky-500/30 rounded-2xl p-5 text-right transition-all duration-300 group shadow-sm hover:shadow-md flex flex-col justify-between h-[120px] cursor-pointer">
                           <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center"><Layers className="w-4 h-4" /></div>
                           <div>
-                            <h3 className="text-xs font-black text-slate-900 group-hover:text-sky-700 transition-colors">{dept.name}</h3>
-                            <p className="text-[10px] text-slate-400 font-bold mt-1">تصفح المستويات الأكاديمية والمناهج المعتمدة</p>
+                            <h3 className="text-xs font-black text-slate-900 group-hover:text-sky-700 transition-colors">
+                              {tGlobal(`departments.${deptStringToIdMap[dept.id]}` as any) || dept.name}
+                            </h3>
+                            <p className="text-[10px] text-slate-400 font-bold mt-1">{t('deptClickDesc')}</p>
                           </div>
                         </button>
                       ))}
@@ -439,7 +453,9 @@ export default function PerfectHarmonizedLibrary() {
                       {Array.from({ length: getMaxLevels(selectedDept) }, (_, i) => i + 1).map((lvlId) => (
                         <button key={lvlId} onClick={() => setSelectedLevel(lvlId)} className="bg-white/80 hover:bg-white border border-white hover:border-emerald-500/30 rounded-2xl p-4 text-center transition-all duration-300 group shadow-sm hover:shadow-md flex flex-col items-center justify-center h-[110px] cursor-pointer">
                           <span className="text-xs font-black text-slate-500 font-mono bg-slate-100 group-hover:bg-emerald-50 group-hover:text-emerald-600 px-2 py-1 rounded-md transition-colors">LVL - 0{lvlId}</span>
-                          <h3 className="text-xs font-black text-slate-900 mt-3 group-hover:text-emerald-700 transition-colors">{levelNamesMap[lvlId]}</h3>
+                          <h3 className="text-xs font-black text-slate-900 mt-3 group-hover:text-emerald-700 transition-colors">
+                            {tGlobal(`levels.${lvlId}` as any) || levelNamesMap[lvlId]}
+                          </h3>
                         </button>
                       ))}
                     </motion.div>
@@ -448,7 +464,9 @@ export default function PerfectHarmonizedLibrary() {
                   {selectedLevel && (
                     <div className="w-full">
                       {isLoadingSection ? (
-                        <div className="text-center py-12 text-xs font-bold text-[#0F5E49] animate-pulse">جاري استدعاء السجلات وفحص الرف الرقمي...</div>
+                        <div className="text-center py-12 text-xs font-bold text-[#0F5E49] animate-pulse">
+                          {t('loadingShelf')}
+                        </div>
                       ) : realBooksData.length > 0 ? (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full p-1 text-right">
                           {realBooksData.map((res: any) => (
@@ -463,7 +481,7 @@ export default function PerfectHarmonizedLibrary() {
                                   <h4 className="text-xs font-black text-slate-900 line-clamp-2 leading-relaxed">{res.title}</h4>
                                   <div className="flex gap-1.5 mt-2">
                                     <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold">
-                                      {res.resource_type === 'accredited_book' ? '📖 كتاب معتمد' : res.resource_type === 'summary_pdf' ? '📄 ملخص PDF' : '🎥 فيديو دراسي'}
+                                      {res.resource_type === 'accredited_book' ? t('typeAccredited') : res.resource_type === 'summary_pdf' ? t('typeSummary') : t('typeVideo')}
                                     </span>
                                   </div>
                                 </div>
@@ -471,7 +489,7 @@ export default function PerfectHarmonizedLibrary() {
                               <div className="border-t border-slate-100 pt-2.5 mt-3 flex justify-between items-center">
                                 <span className="text-[9px] font-mono text-slate-400 font-bold">RES_ID_{res.id}</span>
                                 <a href={res.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-xl transition-all">
-                                  <DownloadCloud className="w-3.5 h-3.5" /> فتح المصدر
+                                  <DownloadCloud className="w-3.5 h-3.5" /> {t('openResource')}
                                 </a>
                               </div>
                             </div>
@@ -482,7 +500,7 @@ export default function PerfectHarmonizedLibrary() {
                           <div className="w-14 h-14 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full flex items-center justify-center mb-4">
                             <Database className="w-6 h-6" />
                           </div>
-                          <h3 className="text-sm font-black text-slate-900">الرف الشامل جاهز ولا توجد مواد حالية</h3>
+                          <h3 className="text-sm font-black text-slate-900">{t('emptyShelfTitle')}</h3>
                         </div>
                       )}
                     </div>
@@ -501,7 +519,7 @@ export default function PerfectHarmonizedLibrary() {
                       type="text" 
                       value={searchQuery} 
                       onChange={(e) => setSearchQuery(e.target.value)} 
-                      placeholder="ابحث باسم المشروع، أسماء الطلاب، أو المشرف..." 
+                      placeholder={t('searchProjectsPlaceholder')} 
                       className="w-full bg-transparent text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none text-right" 
                     />
                     <Search className="w-4 h-4 text-slate-400 mr-2" />
@@ -510,15 +528,15 @@ export default function PerfectHarmonizedLibrary() {
 
                 {isLoadingSection ? (
                   <div className="text-center py-16 text-xs font-bold text-emerald-700 animate-pulse">
-                    جاري جلب مشاريع التخرج المأرشفة في المكتبة...
+                    {t('loadingProjects')}
                   </div>
                 ) : filteredProjects.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
                     {filteredProjects.map((proj: any) => {
                       const pdfUrl = proj.pdf_file_url || proj.file_url;
                       const zipUrl = proj.zip_file_url;
-                      const students = proj.student_names || proj.students_names || 'غير محدد';
-                      const supervisor = proj.supervisor_names || proj.supervisor_name || 'غير محدد';
+                      const students = proj.student_names || proj.students_names || t('unspecified');
+                      const supervisor = proj.supervisor_names || proj.supervisor_name || t('unspecified');
 
                       return (
                         <div key={proj.id} className="bg-white/90 border border-white hover:border-emerald-500/40 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between text-right">
@@ -545,11 +563,11 @@ export default function PerfectHarmonizedLibrary() {
                             <div className="space-y-1 border-t border-slate-100 pt-3 text-[10px] font-bold text-slate-600">
                               <div className="flex items-center gap-1.5">
                                 <Users className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                                <span className="truncate">الفريق: {students}</span>
+                                <span className="truncate">{t('teamLabel')} {students}</span>
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <User className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" />
-                                <span className="truncate">المشرف: {supervisor}</span>
+                                <span className="truncate">{t('supervisorLabel')} {supervisor}</span>
                               </div>
                             </div>
                           </div>
@@ -564,7 +582,7 @@ export default function PerfectHarmonizedLibrary() {
                                 className="flex-1 inline-flex items-center justify-center gap-1 text-[10px] font-black bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl transition-all shadow-sm"
                               >
                                 <FileText className="w-3.5 h-3.5" />
-                                <span>وثيقة PDF</span>
+                                <span>{t('pdfDoc')}</span>
                               </a>
                             )}
 
@@ -576,7 +594,7 @@ export default function PerfectHarmonizedLibrary() {
                                 className="flex-1 inline-flex items-center justify-center gap-1 text-[10px] font-black bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded-xl transition-all shadow-sm"
                               >
                                 <FileArchive className="w-3.5 h-3.5" />
-                                <span>السورس كود ZIP</span>
+                                <span>{t('sourceCodeZip')}</span>
                               </a>
                             )}
                           </div>
@@ -589,13 +607,13 @@ export default function PerfectHarmonizedLibrary() {
                     <div className="w-14 h-14 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center mb-4 border border-sky-100">
                       <FolderGit2 className="w-6 h-6" />
                     </div>
-                    <h3 className="text-sm font-black text-slate-900">لا توجد مشاريع تخرج مطابقة للبحث حالياً</h3>
+                    <h3 className="text-sm font-black text-slate-900">{t('noProjects')}</h3>
                   </div>
                 )}
               </div>
             )}
 
-            {/* 🟢 الجزء الثالث: رسائل الماجستير والدكتوراه (ديناميكي ومربوط بـ Supabase) */}
+            {/* 🟢 الجزء الثالث: رسائل الماجستير والدكتوراه */}
             {activeSection === 'theses' && (
               <div className="flex-grow flex flex-col justify-start">
                 {/* بار البحث المباشر */}
@@ -605,7 +623,7 @@ export default function PerfectHarmonizedLibrary() {
                       type="text" 
                       value={searchQuery} 
                       onChange={(e) => setSearchQuery(e.target.value)} 
-                      placeholder="ابحث باسم الرسالة، اسم الباحث، أو المشرف العلمى..." 
+                      placeholder={t('searchThesesPlaceholder')} 
                       className="w-full bg-transparent text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none text-right" 
                     />
                     <Search className="w-4 h-4 text-slate-400 mr-2" />
@@ -614,15 +632,15 @@ export default function PerfectHarmonizedLibrary() {
 
                 {isLoadingSection ? (
                   <div className="text-center py-16 text-xs font-bold text-amber-700 animate-pulse">
-                    جاري جلب أطروحات ورسائل الماجستير والدكتوراه...
+                    {t('loadingTheses')}
                   </div>
                 ) : filteredTheses.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-1">
                     {filteredTheses.map((thesis: any) => {
                       const pdfUrl = thesis.thesis_pdf_url || thesis.file_url;
                       const zipUrl = thesis.zip_file_url;
-                      const researcher = thesis.student_name || thesis.researcher_name || 'غير محدد';
-                      const supervisor = thesis.supervisor_name || 'غير محدد';
+                      const researcher = thesis.student_name || thesis.researcher_name || t('unspecified');
+                      const supervisor = thesis.supervisor_name || t('unspecified');
 
                       return (
                         <div key={thesis.id} className="bg-white/90 border border-white hover:border-amber-500/40 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between text-right">
@@ -649,11 +667,11 @@ export default function PerfectHarmonizedLibrary() {
                             <div className="space-y-1 border-t border-slate-100 pt-3 text-[10px] font-bold text-slate-600">
                               <div className="flex items-center gap-1.5">
                                 <User className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                                <span className="truncate">الباحث: {researcher}</span>
+                                <span className="truncate">{t('researcherLabel')} {researcher}</span>
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <User className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
-                                <span className="truncate">المشرف: {supervisor}</span>
+                                <span className="truncate">{t('supervisorLabel')} {supervisor}</span>
                               </div>
                             </div>
                           </div>
@@ -668,7 +686,7 @@ export default function PerfectHarmonizedLibrary() {
                                 className="flex-1 inline-flex items-center justify-center gap-1 text-[10px] font-black bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl transition-all shadow-sm"
                               >
                                 <FileText className="w-3.5 h-3.5" />
-                                <span>قراءة الرسالة (PDF)</span>
+                                <span>{t('readThesisPdf')}</span>
                               </a>
                             )}
 
@@ -680,7 +698,7 @@ export default function PerfectHarmonizedLibrary() {
                                 className="flex-1 inline-flex items-center justify-center gap-1 text-[10px] font-black bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded-xl transition-all shadow-sm"
                               >
                                 <FileArchive className="w-3.5 h-3.5" />
-                                <span>المرفقات (ZIP)</span>
+                                <span>{t('attachmentsZip')}</span>
                               </a>
                             )}
                           </div>
@@ -693,7 +711,7 @@ export default function PerfectHarmonizedLibrary() {
                     <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mb-4 border border-amber-100">
                       <Scroll className="w-6 h-6" />
                     </div>
-                    <h3 className="text-sm font-black text-slate-900">لا توجد رسائل علمية مطابقة للبحث</h3>
+                    <h3 className="text-sm font-black text-slate-900">{t('noTheses')}</h3>
                   </div>
                 )}
               </div>

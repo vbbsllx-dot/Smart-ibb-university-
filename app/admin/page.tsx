@@ -3,10 +3,12 @@
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl'; // 👈 استدعاء خطاف الترجمة
 import { supabase } from '@/lib/supabase';
 
 function AdminLoginContent() {
   const router = useRouter();
+  const t = useTranslations('AdminLogin'); // 👈 ربط قسم تسجيل الدخول
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -31,58 +33,60 @@ function AdminLoginContent() {
         .single();
 
       if (error || !user) {
-        setNotification("⚠️ خطأ: بيانات الدخول غير موجودة في قاعدة بيانات النظام.");
+        setNotification(t('errNotFound'));
         setIsLoading(false);
         return;
       }
 
       // 🔐 التحقق الصارم من الرتبة (يجب أن يكون admin فقط)
       if (user.role !== 'admin') {
-        setNotification("⛔ صلاحيات مرفوضة: هذا الحساب لا يمتلك صلاحيات إدارة النظام (Admin).");
+        setNotification(t('errForbidden'));
         setIsLoading(false);
         return;
       }
 
       // 🔑 مطابقة كلمة المرور
       if (user.password_hash !== password) {
-        setNotification("🔑 خطأ: كلمة المرور غير صحيحة.");
+        setNotification(t('errPassword'));
         setIsLoading(false);
         return;
       }
 
       // 🎯 النجاح
-      setNotification("✅ تم التحقق.. جاري توجيهك إلى لوحة تحكم الإدارة العليا.");
+      setNotification(t('successRedirect'));
       localStorage.setItem('admin_username', username);
       
       setTimeout(() => router.push('/admin/dashboard'), 1200);
 
     } catch (err) {
-      setNotification("🚨 حدث خطأ في الاتصال بالخوادم المركزية.");
+      setNotification(t('errServer'));
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-[#04181e] text-slate-100 min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-6 font-sans" dir="rtl">
+    <div className="bg-[#04181e] text-slate-100 min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-6 font-sans">
       
       {/* 🌌 تأثير الخلفية التفاعلية بهوية الزيتي والأخضر الزمردي */}
       <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(0,188,126,0.06)_0%,transparent_70%)]" />
       <div className="absolute w-[500px] h-[500px] rounded-full bg-[#059669]/10 blur-[140px] top-[-10%] right-[-10%]" />
       <div className="absolute w-[500px] h-[500px] rounded-full bg-[#00bc7e]/10 blur-[140px] bottom-[-10%] left-[-10%]" />
 
-      {/* 🔔 نظام الإشعارات العائم */}
+      {/* 🔔 نظام الإشعارات العائم المترجم */}
       {notification && (
         <div className="fixed top-6 max-w-[400px] w-full px-5 py-4 rounded-2xl border backdrop-blur-2xl z-50 shadow-2xl transition-all duration-500 flex items-center gap-3 bg-[#062c35]/90 border-[#00bc7e]/40 text-[#00bc7e]">
           <span className="w-2.5 h-2.5 rounded-full bg-[#00bc7e] animate-ping flex-shrink-0" />
           <p className="text-xs font-black leading-relaxed text-slate-100 flex-1">{notification}</p>
-          <button type="button" onClick={() => setNotification(null)} className="text-[11px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer">إغلاق</button>
+          <button type="button" onClick={() => setNotification(null)} className="text-[11px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer">
+            {t('close')}
+          </button>
         </div>
       )}
 
       {/* 🏛️ صندوق تسجيل الدخول الرئيسي */}
       <div className="w-full max-w-[440px] bg-[#062c35]/70 backdrop-blur-2xl border border-[#00bc7e]/25 rounded-[2.5rem] p-8 shadow-[0_25px_60px_rgba(0,0,0,0.6)] relative z-10 transition-all duration-500 hover:border-[#00bc7e]/40">
         
-        {/* 🎓 قبعة ورأس التفاعل الذكي (بألوان الأخضر الزمردي المحدثة) */}
+        {/* 🎓 قبعة ورأس التفاعل الذكي (بألوان الأخضر الزمردي) */}
         <div className="w-full flex justify-center mb-6 select-none relative h-28">
           <svg className="w-28 h-28 transition-all duration-500" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M50 15L85 27L50 39L15 27L50 15Z" fill="#04161c" stroke="#00bc7e" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -119,16 +123,16 @@ function AdminLoginContent() {
 
         <div className="text-center mb-8 select-none">
           <div className="inline-block px-3 py-1 rounded-full bg-[#00bc7e]/15 border border-[#00bc7e]/30 text-[#00bc7e] text-[10px] font-mono font-black mb-2">
-            CONTROL CENTER ACCESS
+            {t('badge')}
           </div>
-          <h3 className="text-xl font-black text-white tracking-tight">بوابة الإدارة العليا (Admin)</h3>
-          <p className="text-xs text-slate-300 font-medium mt-1">نظام التحكم والاعتمادات لمشرفي المنصة</p>
+          <h3 className="text-xl font-black text-white tracking-tight">{t('title')}</h3>
+          <p className="text-xs text-slate-300 font-medium mt-1">{t('subtitle')}</p>
         </div>
 
         <form onSubmit={handleAdminLogin} className="space-y-5">
           {/* حقل اسم المستخدم */}
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-2 mr-1">معرف المشرف (Admin ID)</label>
+            <label className="block text-xs font-bold text-slate-300 mb-2 px-1">{t('adminIdLabel')}</label>
             <input 
               type="text"
               value={username}
@@ -136,14 +140,14 @@ function AdminLoginContent() {
               onFocus={() => setIsUsernameFocused(true)}
               onBlur={() => setIsUsernameFocused(false)}
               className="w-full bg-[#041a21]/90 border border-[#0d4e5d] rounded-2xl px-4 py-3.5 text-sm text-white focus:outline-none transition-all shadow-inner focus:border-[#00bc7e] focus:ring-2 focus:ring-[#00bc7e]/20 placeholder-slate-500 font-medium"
-              placeholder="أدخل معرف الإدارة..."
+              placeholder={t('adminIdPlaceholder')}
               required
             />
           </div>
 
           {/* حقل كلمة المرور */}
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-2 mr-1">كلمة المرور المشفرة</label>
+            <label className="block text-xs font-bold text-slate-300 mb-2 px-1">{t('passwordLabel')}</label>
             <div className="relative flex items-center">
               <input 
                 type={showPassword ? "text" : "password"}
@@ -151,14 +155,14 @@ function AdminLoginContent() {
                 onChange={(e) => setPassword(e.target.value)}
                 onFocus={() => setIsPasswordFocused(true)}
                 onBlur={() => setIsPasswordFocused(false)}
-                className="w-full bg-[#041a21]/90 border border-[#0d4e5d] rounded-2xl pl-12 pr-4 py-3.5 text-sm text-white focus:outline-none transition-all shadow-inner focus:border-[#00bc7e] focus:ring-2 focus:ring-[#00bc7e]/20 placeholder-slate-500 font-medium"
-                placeholder="••••••••"
+                className="w-full bg-[#041a21]/90 border border-[#0d4e5d] rounded-2xl px-4 py-3.5 text-sm text-white focus:outline-none transition-all shadow-inner focus:border-[#00bc7e] focus:ring-2 focus:ring-[#00bc7e]/20 placeholder-slate-500 font-medium"
+                placeholder={t('passwordPlaceholder')}
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute left-3.5 p-1.5 rounded-xl text-slate-400 hover:text-[#00bc7e] transition-colors z-30 cursor-pointer"
+                className="absolute end-3.5 p-1.5 rounded-xl text-slate-400 hover:text-[#00bc7e] transition-colors z-30 cursor-pointer"
               >
                 {showPassword ? (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7z"/></svg>
@@ -183,17 +187,17 @@ function AdminLoginContent() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span>جاري التحقق من الصلاحيات...</span>
+                <span>{t('verifying')}</span>
               </>
             ) : (
-              <span>دخول لوحة التحكّم</span>
+              <span>{t('loginBtn')}</span>
             )}
           </button>
         </form>
 
         <div className="mt-6 text-center">
           <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#00bc7e] transition-colors font-bold">
-            <span>← العودة للموقع الرئيسي</span>
+            <span>{t('backHome')}</span>
           </Link>
         </div>
       </div>
@@ -206,10 +210,11 @@ function AdminLoginContent() {
 }
 
 export default function AdminLoginPage() {
+  const t = useTranslations('AdminLogin');
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#04181e] flex items-center justify-center text-[#00bc7e] font-mono text-xs font-bold">
-        INITIALIZING SYSTEM CORE NODE...
+        {t('initializing')}
       </div>
     }>
       <AdminLoginContent />

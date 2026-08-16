@@ -75,3 +75,68 @@ body {
 /* Floating subtle tilt for cards using CSS variables set by JS for performance */
 .card-tilt { transform: perspective(800px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateZ(0); transition: transform 180ms linear; }
 
+/* 🌐 إخفاء شريط جوجل والـ Tooltip لتظل الواجهة نظيفة وفخمة */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-banner-frame,
+iframe.goog-te-banner-frame {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+.skiptranslate > iframe {
+  display: none !important;
+}
+
+#goog-gt-tt,
+.goog-te-balloon-frame {
+  display: none !important;
+}
+
+.goog-text-highlight {
+  background: none !important;
+  box-shadow: none !important;
+}
+/* ===================================================
+   🌐 نظام الترجمة الشامل - إخفاء أشرطة جوجل تماماً
+   =================================================== */
+
+/* إخفاء شريط جوجل العلوي والإطارات المنبثقة */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-banner-frame,
+iframe.goog-te-banner-frame,
+.goog-te-menu-frame {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+}
+
+/* منع دفع الصفحة لأسفل */
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+/* إخفاء التلميحات المزعجة عند تحريك الماوس فوق النصوص */
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-tooltip,
+.goog-tooltip:hover {
+  display: none !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* إخفاء الصندوق الافتراضي لجوجل */
+#google_translate_element {
+  display: none !important;
+}

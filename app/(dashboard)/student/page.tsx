@@ -2,13 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 // 1️⃣ استيراد عميل الاتصال بـ Supabase
 import { supabase } from '@/lib/supabase';
 
 import DubbingStudio from '../../components/student/DubbingStudio';
 
-
 export default function StudentDashboard() {
+  const t = useTranslations('StudentDashboard');
+  const tGlobal = useTranslations('RegistrationDetails');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [time, setTime] = useState('');
 
@@ -21,7 +24,6 @@ export default function StudentDashboard() {
   const [uploadCourse, setUploadCourse] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState({ type: '', text: '' });
-
 
   // 2️⃣ الحالات الذكية لاستقبال البيانات الحقيقية من السيرفر بدون أي بيانات افتراضية
   const [studentData, setStudentData] = useState<any>(null);
@@ -39,8 +41,7 @@ export default function StudentDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // 3️⃣ 📡 دالة استدعاء ملف الطالب الأكاديمي والمقررات حياً من جداول السيرفر
-// 3️⃣ 📡 دالة استدعاء ملف الطالب الأكاديمي والمقررات وجدول الكلية
+  // 3️⃣ 📡 دالة استدعاء ملف الطالب الأكاديمي والمقررات وجدول الكلية
   useEffect(() => {
     const fetchStudentProfileAndGrades = async () => {
       setLoading(true);
@@ -49,7 +50,7 @@ export default function StudentDashboard() {
         const usernameToSearch = loggedInUser || 'raed123'; 
 
         // الاستعلام الذكي: يجلب بيانات الطالب + اسم المستخدم + بيانات القسم والكلية المرتبطة
-       // الاستعلام المحدث للوصول إلى جدول schedules
+        // الاستعلام المحدث للوصول إلى جدول schedules
         const { data: studentRow, error: studentError } = await supabase
           .from('students')
           .select(`
@@ -71,15 +72,14 @@ export default function StudentDashboard() {
           .maybeSingle();
 
         if (!studentError && studentRow) {
-          
           // استخراج البيانات بالمسار الجديد
-          const departmentName = studentRow.departments?.name || "القسم غير محدد";
-          const collegeName = studentRow.departments?.colleges?.name || "الكلية غير محددة";
+          const departmentName = tGlobal(`departments.${studentRow.dep_id}` as any) || studentRow.departments?.name || t('deptUndefined');
+          const collegeName = studentRow.departments?.colleges?.name || t('collegeUndefined');
           
           // الدخول إلى مصفوفة schedules لجلب رابط الصورة المربوطة بالكلية
           const scheduleUrl = studentRow.departments?.colleges?.schedules?.[0]?.schedule_image_url || null;
 
-    // تحويل رقم المستوى القادم من قاعدة البيانات إلى نص عربي
+          // تحويل رقم المستوى القادم من قاعدة البيانات إلى نص عربي أو مترجم
           const levelNames: { [key: number]: string } = {
             1: "المستوى الأول",
             2: "المستوى الثاني",
@@ -91,7 +91,7 @@ export default function StudentDashboard() {
           };
           
           // استخراج اسم المستوى بناءً على الـ level_id، وإذا لم يجده يعرض الرقم مباشرة
-          const studentLevelText = levelNames[studentRow.level_id] || `المستوى ${studentRow.level_id}`;
+          const studentLevelText = tGlobal(`levels.${studentRow.level_id}` as any) || levelNames[studentRow.level_id] || `المستوى ${studentRow.level_id}`;
 
           setStudentData({
             name: studentRow.name,
@@ -100,13 +100,12 @@ export default function StudentDashboard() {
             department: departmentName,
             dep_id: studentRow.dep_id, 
             college_name: collegeName,
-            level: studentLevelText, // 👈 هنا التعديل! أصبح ديناميكياً
+            level: studentLevelText, // 👈 هنا التعديل! أصبح ديناميكياً ومترجماً
             level_id: studentRow.level_id, 
             gpa: studentRow.gpa || "0.00",
-            status: studentRow.status || "منتظم",
+            status: studentRow.status || t('statusEnrolled'),
             schedule_url: scheduleUrl
           });
-          // استكمال جلب المواد المسجلة...
 
           // جلب المواد المسجلة للطالب
           const { data: coursesData, error: coursesError } = await supabase
@@ -127,19 +126,19 @@ export default function StudentDashboard() {
     };
 
     fetchStudentProfileAndGrades();
-  }, []);
+  }, [t, tGlobal]);
 
   // دالة رفع الملخص إلى قاعدة البيانات والمكتبة
   const handleUploadResource = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!uploadFile || !uploadTitle || !uploadCourse) {
-      setUploadMessage({ type: 'error', text: 'يرجى تعبئة جميع الحقول واختيار ملف للرفع.' });
+      setUploadMessage({ type: 'error', text: t('errFillAllFields') });
       return;
     }
 
     if (!studentData?.dep_id || !studentData?.level_id) {
-      setUploadMessage({ type: 'error', text: 'خطأ: بيانات القسم أو المستوى مفقودة، لا يمكن الرفع.' });
+      setUploadMessage({ type: 'error', text: t('errMissingDeptLevel') });
       return;
     }
 
@@ -151,24 +150,23 @@ export default function StudentDashboard() {
       const fileExt = uploadFile.name.split('.').pop();
       const fileName = `${studentData.id}_${Date.now()}.${fileExt}`;
       
-      // 👈 التعديل الأول: تضمين مجلد summary_pdf في المسار ليتطابق مع هيكلتك
+      // تضمين مجلد summary_pdf في المسار ليتطابق مع الهيكلة
       const filePath = `summary_pdf/dept_${studentData.dep_id}/level_${studentData.level_id}/${fileName}`;
 
-      const { error: uploadError, data: uploadData } = await supabase.storage
-        .from('university-files') // 👈 التعديل الثاني: اسم المستودع الصحيح من الصورة
+      const { error: uploadError } = await supabase.storage
+        .from('university-files')
         .upload(filePath, uploadFile);
 
       if (uploadError) throw uploadError;
 
       // 2. جلب الرابط العام للملف المرفوع
       const { data: publicUrlData } = supabase.storage
-        .from('university-files') // 👈 التعديل الثالث: اسم المستودع الصحيح هنا أيضاً
+        .from('university-files')
         .getPublicUrl(filePath);
 
       const fileUrl = publicUrlData.publicUrl;
 
       // 3. إدراج البيانات في جدول resources لكي تظهر في المكتبة
-     // 3. إدراج البيانات في جدول resources لكي تظهر في المكتبة
       const { error: insertError } = await supabase
         .from('resources')
         .insert([
@@ -179,7 +177,7 @@ export default function StudentDashboard() {
             dep_id: studentData.dep_id,
             student_id: studentData.id.toString(), 
             instructor_id: null, 
-            resource_type: 'summary_pdf', // 👈 هنا التعديل! استخدمنا القيمة المسموحة في قاعدة البيانات
+            resource_type: 'summary_pdf',
             is_visible: true
           }
         ]);
@@ -187,18 +185,19 @@ export default function StudentDashboard() {
       if (insertError) throw insertError;
 
       // 4. رسالة النجاح وتفريغ الحقول
-      setUploadMessage({ type: 'success', text: 'تم رفع الملخص بنجاح! وهو متاح الآن لزملائك في المكتبة 📚' });
+      setUploadMessage({ type: 'success', text: t('successUpload') });
       setUploadFile(null);
       setUploadTitle('');
       setUploadCourse('');
       
     } catch (error: any) {
       console.error("Upload Error:", error);
-      setUploadMessage({ type: 'error', text: 'حدث خطأ أثناء الرفع: ' + (error.message || 'حاول مرة أخرى.') });
+      setUploadMessage({ type: 'error', text: t('errUploadPrefix') + (error.message || t('tryAgain')) });
     } finally {
       setIsUploading(false);
     }
   };
+
   // مصفوفة الألوان لتزيين الخطوط الجانبية للمواد بشكل ديناميكي
   const colorPalettes = [
     "from-emerald-500 to-teal-500",
@@ -220,7 +219,7 @@ export default function StudentDashboard() {
         <div className="flex items-center gap-3">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_12px_#34d399]" />
           <div className="text-right">
-            <h1 className="text-base font-black tracking-wider text-slate-50 drop-shadow-sm">بوابة الخدمات الأكاديمية الذكية</h1>
+            <h1 className="text-base font-black tracking-wider text-slate-50 drop-shadow-sm">{t('platformTitle')}</h1>
             <p className="text-[10px] text-emerald-300 font-mono tracking-widest uppercase">Student Cyber Portal // IBB UNI</p>
           </div>
         </div>
@@ -230,7 +229,7 @@ export default function StudentDashboard() {
             {time || "00:00:00"}
           </div>
           <Link href="/login" className="text-xs font-bold bg-white/10 hover:bg-rose-600/20 hover:text-rose-300 border border-white/10 px-4 py-2 rounded-xl transition-all duration-300 shadow-sm">
-            تسجيل الخروج ↩
+            {t('logout')}
           </Link>
         </div>
       </header>
@@ -238,21 +237,14 @@ export default function StudentDashboard() {
       {/* 📊 محتوى لوحة التحكم */}
       {loading ? (
         <div className="flex-grow flex items-center justify-center text-xs font-black text-[#0A2540] animate-pulse">
-          🔄 جاري فحص ملف الطالب واستدعاء السجلات الحية من قاعدة البيانات المركزية...
+          {t('loadingProfile')}
         </div>
       ) : (
         <div className="max-w-[1500px] w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6 relative z-10 flex-grow">
 
-
-
-
-
-
-          
           {/* 🔐 الكرت الجانبي الموحد: الهوية الأكاديمية + بوابات الوصول */}
           <aside className="border border-blue-200/60 bg-blue-100/50 backdrop-blur-md rounded-3xl p-6 shadow-[0_8px_25px_rgba(0,0,0,0.05)] h-fit space-y-6 transition-all duration-500 hover:bg-blue-100/70 hover:shadow-[0_15px_35px_rgba(59,130,246,0.15)] hover:-translate-y-1 hover:border-blue-300/80 lg:col-span-1">     
             
-            {/* 1. قسم بيانات الطالب (الهوية المباشرة بخلفية افتراضية) */}
             {/* 1. قسم بيانات الطالب (الهوية المباشرة بخلفية افتراضية) */}
             <div className="w-full">
               <div className="relative overflow-hidden rounded-2xl border border-white/60 bg-white/40 shadow-sm">
@@ -272,7 +264,7 @@ export default function StudentDashboard() {
                 {/* 📄 بيانات الهوية المباشرة */}
                 <div className="text-center px-4 pb-5 pt-2">
                   <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                    {studentData?.name || "No Connect"}
+                    {studentData?.name || t('noConnect')}
                   </h2>
                   
                   {/* اسم المستخدم (Username) */}
@@ -281,21 +273,21 @@ export default function StudentDashboard() {
                   </p>
                   
                   <p className="text-[11px] font-bold text-slate-500 mt-1">
-                    {studentData?.department || "No Connect"}
+                    {studentData?.department || t('noConnect')}
                   </p>
                   
                   {/* تفاصيل الرقم الأكاديمي والمستوى */}
                   <div className="mt-4 space-y-2.5 text-xs font-semibold text-slate-600 bg-white/50 p-3 rounded-xl border border-white/50 shadow-inner">
                     <div className="flex justify-between flex-row-reverse text-right items-center">
-                      <span className="text-slate-400 font-medium">الرقم الأكاديمي:</span>
+                      <span className="text-slate-400 font-medium">{t('academicIdLabel')}</span>
                       <span className="font-mono font-black text-[#0A2540]">
-                        {studentData?.id || "No Connect"}
+                        {studentData?.id || t('noConnect')}
                       </span>
                     </div>
                     <div className="flex justify-between flex-row-reverse text-right items-center">
-                      <span className="text-slate-400 font-medium">حالة القيد:</span>
+                      <span className="text-slate-400 font-medium">{t('enrollmentStatusLabel')}</span>
                       <span className={`font-black px-2 py-0.5 rounded border ${studentData?.status ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-rose-500 bg-rose-50 border-rose-100'}`}>
-                        {studentData?.status || "No Connect"}
+                        {studentData?.status || t('noConnect')}
                       </span>
                     </div>
                   </div>
@@ -304,12 +296,11 @@ export default function StudentDashboard() {
               </div>
             </div> 
 
-            
-
             {/* 2. قسم بوابات الوصول الذكية (الكروت الزجاجية) */}
             <div className="space-y-3.5 border-t border-slate-200/60 pt-6">
-              <h3 className="text-[10px] font-black text-slate-400 px-1 uppercase tracking-widest mb-2">بوابات الوصول الذكية</h3>
-               {/* 4️⃣ كرت جدول المحاضرات الفوري */}
+              <h3 className="text-[10px] font-black text-slate-400 px-1 uppercase tracking-widest mb-2">{t('smartPortals')}</h3>
+              
+              {/* 1️⃣ كرت جدول المحاضرات الفوري */}
               <button 
                 onClick={() => setActiveView('schedule')} 
                 className={`h-[125px] rounded-2xl p-3 flex flex-col justify-between relative group/card border ${activeView === 'schedule' ? 'border-indigo-400 shadow-md bg-white/90' : 'border-white/80 bg-white/60 hover:-translate-y-1 hover:bg-white'} backdrop-blur-md transition-all duration-500 ease-out text-right w-full cursor-pointer`}
@@ -319,11 +310,10 @@ export default function StudentDashboard() {
                   <div className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-lg bg-black/40 backdrop-blur-md border border-white/20 text-xs">📅</div>
                 </div>
                 <div className="mt-1">
-                  <h4 className={`font-black text-xs tracking-tight transition-colors ${activeView === 'schedule' ? 'text-indigo-600' : 'text-slate-900 group-hover/card:text-indigo-600'}`}>جدول المحاضرات الفوري</h4>
-                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">مواعيد القاعات والمختبرات</p>
+                  <h4 className={`font-black text-xs tracking-tight transition-colors ${activeView === 'schedule' ? 'text-indigo-600' : 'text-slate-900 group-hover/card:text-indigo-600'}`}>{t('portalScheduleTitle')}</h4>
+                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">{t('portalScheduleDesc')}</p>
                 </div>
               </button>
-         
 
               {/* 2️⃣ كرت محرك المكتبة الذكية RAG */}
               <Link 
@@ -335,8 +325,8 @@ export default function StudentDashboard() {
                   <div className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-lg bg-black/40 backdrop-blur-md border border-white/20 text-xs">🧠</div>
                 </div>
                 <div className="mt-1">
-                  <h4 className="font-black text-slate-900 text-xs tracking-tight group-hover/card:text-sky-600 transition-colors">محرك المكتبة الذكية</h4>
-                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">البحث الدلالي والتفاعل التوليدي</p>
+                  <h4 className="font-black text-slate-900 text-xs tracking-tight group-hover/card:text-sky-600 transition-colors">{t('portalLibraryTitle')}</h4>
+                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">{t('portalLibraryDesc')}</p>
                 </div>
               </Link>
 
@@ -352,15 +342,13 @@ export default function StudentDashboard() {
                   <div className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-lg bg-black/40 backdrop-blur-md border border-white/20 text-xs">📊</div>
                 </div>
                 <div className="mt-1">
-                  <h4 className="font-black text-slate-900 text-xs tracking-tight group-hover/card:text-emerald-600 transition-colors">السجل الأكاديمي والنتائج</h4>
-                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">الاستعلام المباشر عن الدرجات</p>
+                  <h4 className="font-black text-slate-900 text-xs tracking-tight group-hover/card:text-emerald-600 transition-colors">{t('portalRecordsTitle')}</h4>
+                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">{t('portalRecordsDesc')}</p>
                 </div>
               </a>
 
-           
-             
               {/* 4️⃣ كرت إجراء المعاملات الطلابية */}
-            <button 
+              <button 
                 onClick={() => setActiveView('transactions')} 
                 className={`h-[125px] rounded-2xl p-3 flex flex-col justify-between relative group/card border ${activeView === 'transactions' ? 'border-amber-400 shadow-md bg-white/90' : 'border-white/80 bg-white/60 hover:-translate-y-1 hover:bg-white'} backdrop-blur-md transition-all duration-500 ease-out text-right w-full cursor-pointer`}
               >
@@ -369,8 +357,8 @@ export default function StudentDashboard() {
                   <div className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-lg bg-black/40 backdrop-blur-md border border-white/20 text-xs">📝</div>
                 </div>
                 <div className="mt-1">
-                  <h4 className={`font-black text-xs tracking-tight transition-colors ${activeView === 'transactions' ? 'text-amber-600' : 'text-slate-900 group-hover/card:text-amber-600'}`}>إجراء المعاملات الطلابية</h4>
-                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">تقديم ومتابعة الطلبات</p>
+                  <h4 className={`font-black text-xs tracking-tight transition-colors ${activeView === 'transactions' ? 'text-amber-600' : 'text-slate-900 group-hover/card:text-amber-600'}`}>{t('portalTransactionsTitle')}</h4>
+                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">{t('portalTransactionsDesc')}</p>
                 </div>
               </button>
 
@@ -384,10 +372,11 @@ export default function StudentDashboard() {
                   <div className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-lg bg-black/40 backdrop-blur-md border border-white/20 text-xs">📤</div>
                 </div>
                 <div className="mt-1">
-                  <h4 className={`font-black text-xs tracking-tight transition-colors ${activeView === 'uploads' ? 'text-rose-600' : 'text-slate-900 group-hover/card:text-rose-600'}`}>رفع ملخصات</h4>
-                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">مشاركة المواد الدراسية</p>
+                  <h4 className={`font-black text-xs tracking-tight transition-colors ${activeView === 'uploads' ? 'text-rose-600' : 'text-slate-900 group-hover/card:text-rose-600'}`}>{t('portalUploadsTitle')}</h4>
+                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">{t('portalUploadsDesc')}</p>
                 </div>
               </button>
+
               {/* 6️⃣ كرت دبلجة الفيديوهات بالذكاء الاصطناعي */}
               <button 
                 onClick={() => setActiveView('dubbing')} 
@@ -398,24 +387,15 @@ export default function StudentDashboard() {
                   <div className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-lg bg-black/40 backdrop-blur-md border border-white/20 text-xs">🎙️</div>
                 </div>
                 <div className="mt-1">
-                  <h4 className={`font-black text-xs tracking-tight transition-colors ${activeView === 'dubbing' ? 'text-purple-600' : 'text-slate-900 group-hover/card:text-purple-600'}`}>استوديو الدبلجة (AI)</h4>
-                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">ترجمة المقاطع التعليمية</p>
+                  <h4 className={`font-black text-xs tracking-tight transition-colors ${activeView === 'dubbing' ? 'text-purple-600' : 'text-slate-900 group-hover/card:text-purple-600'}`}>{t('portalDubbingTitle')}</h4>
+                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">{t('portalDubbingDesc')}</p>
                 </div>
               </button>
             </div>
             
           </aside>
 
-
-
-
-
-
-
-
-
-
-           {/* القسم الرئيسي الديناميكي (يتغير حسب اختيار الطالب) */}
+          {/* القسم الرئيسي الديناميكي (يتغير حسب اختيار الطالب) */}
           <main className="lg:col-span-3 space-y-6">
             
             {/* 1. واجهة جدول المحاضرات (مخصصة حسب الكلية وتدعم الصور و PDF) */}
@@ -425,17 +405,17 @@ export default function StudentDashboard() {
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-4 rounded-full bg-indigo-600" />
                     <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
-                      جدول المحاضرات الموحد
+                      {t('scheduleTitle')}
                     </h3>
                   </div>
                   
                   {/* عرض اسم الكلية والقسم ليتأكد الطالب أنه جدوله الصحيح */}
                   <div className="flex flex-wrap gap-2 text-[10px] font-bold">
                     <span className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full border border-indigo-100 shadow-sm">
-                      🏛️ {studentData?.college_name || "الكلية غير محددة"}
+                      🏛️ {studentData?.college_name || t('collegeUndefined')}
                     </span>
                     <span className="bg-white/60 text-slate-500 px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">
-                      {studentData?.department || "القسم غير محدد"}
+                      {studentData?.department || t('deptUndefined')}
                     </span>
                   </div>
                 </div>
@@ -452,9 +432,9 @@ export default function StudentDashboard() {
                         className="w-full h-[600px] rounded-xl"
                       >
                         <p className="text-sm text-slate-500 text-center p-10">
-                          متصفحك لا يدعم عرض ملفات PDF. 
+                          {t('pdfNotSupported')}{' '}
                           <a href={studentData.schedule_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-bold underline ml-1">
-                            انقر هنا لتنزيل الجدول
+                            {t('clickToDownloadSchedule')}
                           </a>.
                         </p>
                       </object>
@@ -472,10 +452,10 @@ export default function StudentDashboard() {
                         📅
                       </div>
                       <h4 className="text-lg font-black text-slate-800 mb-2">
-                        لم يتم رفع جدول {studentData?.college_name ? `(${studentData.college_name})` : "كليتك"} بعد
+                        {t('noScheduleUploaded', { college: studentData?.college_name ? `(${studentData.college_name})` : t('yourCollege') })}
                       </h4>
                       <p className="text-xs font-medium text-slate-500 max-w-sm mx-auto leading-relaxed">
-                        سيتم عرض صورة جدول المحاضرات الخاص بكليتك هنا تلقائياً بمجرد أن تقوم إدارة الكلية برفعه إلى النظام.
+                        {t('noScheduleDesc')}
                       </p>
                     </div>
                   )}
@@ -491,16 +471,16 @@ export default function StudentDashboard() {
                 {/* 📌 ترويسة القسم */}
                 <div className="flex items-center gap-3 mb-6 border-b border-slate-200/60 pb-4">
                   <div className="w-1.5 h-6 rounded-full bg-amber-500" />
-                  <h3 className="text-xl font-black text-slate-900">بوابة المعاملات الطلابية الإلكترونية</h3>
+                  <h3 className="text-xl font-black text-slate-900">{t('transactionsTitle')}</h3>
                 </div>
 
                 {/* 🗂️ الشريط الأفقي للتبويبات (Tabs Navbar) */}
                 <div className="flex overflow-x-auto pb-2 mb-6 gap-2 hide-scrollbar">
                   {[
-                    { id: 'absence', name: 'غياب بعذر', icon: '📝' },
-                    { id: 'suspend', name: 'وقف قيد', icon: '⏸️' },
-                    { id: 'resume', name: 'فتح قيد', icon: '▶️' },
-                    { id: 'withdraw', name: 'سحب ملف', icon: '📂' },
+                    { id: 'absence', name: t('tabAbsence'), icon: '📝' },
+                    { id: 'suspend', name: t('tabSuspend'), icon: '⏸️' },
+                    { id: 'resume', name: t('tabResume'), icon: '▶️' },
+                    { id: 'withdraw', name: t('tabWithdraw'), icon: '📂' },
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -522,44 +502,44 @@ export default function StudentDashboard() {
                   
                   {activeTransactionTab === 'absence' && (
                     <div className="animate-in fade-in duration-300">
-                      <h4 className="text-lg font-black text-slate-800 mb-2">تقديم طلب غياب بعذر</h4>
-                      <p className="text-sm font-medium text-slate-500 mb-6">يرجى تعبئة الحقول أدناه لتقديم العذر ليتم مراجعته من قبل شؤون الطلاب.</p>
+                      <h4 className="text-lg font-black text-slate-800 mb-2">{t('absenceTitle')}</h4>
+                      <p className="text-sm font-medium text-slate-500 mb-6">{t('absenceDesc')}</p>
                       {/* سيتم وضع حقول نموذج الغياب هنا */}
                       <div className="p-10 border-2 border-dashed border-amber-200 rounded-xl text-center text-amber-600 font-bold bg-amber-50/50">
-                        [ جاهز لاستقبال حقول نموذج الغياب بعذر منك ]
+                        {t('absencePlaceholder')}
                       </div>
                     </div>
                   )}
 
                   {activeTransactionTab === 'suspend' && (
                     <div className="animate-in fade-in duration-300">
-                      <h4 className="text-lg font-black text-slate-800 mb-2">طلب وقف القيد الأكاديمي</h4>
-                      <p className="text-sm font-medium text-slate-500 mb-6">يمكنك تقديم طلب لوقف قيدك مؤقتاً وفقاً للوائح الجامعة.</p>
+                      <h4 className="text-lg font-black text-slate-800 mb-2">{t('suspendTitle')}</h4>
+                      <p className="text-sm font-medium text-slate-500 mb-6">{t('suspendDesc')}</p>
                       {/* سيتم وضع حقول نموذج وقف القيد هنا */}
                       <div className="p-10 border-2 border-dashed border-slate-300 rounded-xl text-center text-slate-500 font-bold bg-white/50">
-                        [ جاهز لاستقبال حقول نموذج وقف القيد منك ]
+                        {t('suspendPlaceholder')}
                       </div>
                     </div>
                   )}
 
                   {activeTransactionTab === 'resume' && (
                     <div className="animate-in fade-in duration-300">
-                      <h4 className="text-lg font-black text-slate-800 mb-2">طلب فتح القيد (إعادة التسجيل)</h4>
-                      <p className="text-sm font-medium text-slate-500 mb-6">استئناف دراستك بعد فترة الوقف المعتمدة.</p>
+                      <h4 className="text-lg font-black text-slate-800 mb-2">{t('resumeTitle')}</h4>
+                      <p className="text-sm font-medium text-slate-500 mb-6">{t('resumeDesc')}</p>
                       {/* سيتم وضع حقول نموذج فتح القيد هنا */}
                       <div className="p-10 border-2 border-dashed border-slate-300 rounded-xl text-center text-slate-500 font-bold bg-white/50">
-                        [ جاهز لاستقبال حقول نموذج فتح القيد منك ]
+                        {t('resumePlaceholder')}
                       </div>
                     </div>
                   )}
 
                   {activeTransactionTab === 'withdraw' && (
                     <div className="animate-in fade-in duration-300">
-                      <h4 className="text-lg font-black text-slate-800 mb-2">طلب إخلاء طرف وسحب ملف</h4>
-                      <p className="text-sm font-medium text-slate-500 mb-6">إجراءات سحب ملفك الأكاديمي بشكل نهائي من الجامعة.</p>
+                      <h4 className="text-lg font-black text-slate-800 mb-2">{t('withdrawTitle')}</h4>
+                      <p className="text-sm font-medium text-slate-500 mb-6">{t('withdrawDesc')}</p>
                       {/* سيتم وضع حقول نموذج سحب الملف هنا */}
                       <div className="p-10 border-2 border-dashed border-rose-300 rounded-xl text-center text-rose-500 font-bold bg-rose-50/50">
-                        [ جاهز لاستقبال حقول نموذج سحب الملف منك ]
+                        {t('withdrawPlaceholder')}
                       </div>
                     </div>
                   )}
@@ -568,35 +548,35 @@ export default function StudentDashboard() {
               </section>
             )}
             
-           {/* واجهة منصة رفع الملخصات (المقيدة ببيانات الطالب) */}
+            {/* واجهة منصة رفع الملخصات (المقيدة ببيانات الطالب) */}
             {activeView === 'uploads' && (
               <section className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.01)] h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center gap-3 mb-6 border-b border-slate-200/60 pb-4">
                   <div className="w-1.5 h-6 rounded-full bg-rose-500" />
-                  <h3 className="text-xl font-black text-slate-900">مشاركة الملخصات والمقررات</h3>
+                  <h3 className="text-xl font-black text-slate-900">{t('uploadsTitle')}</h3>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* الجانب الأيمن: بيانات محددة وتلقائية (مقفلة) */}
                   <div className="bg-slate-50/50 border border-slate-200/60 rounded-2xl p-5 space-y-4 shadow-inner relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-400 to-rose-600" />
-                    <h4 className="font-bold text-slate-700 text-sm mb-4">📍 سياق الرفع (تلقائي ومقفل لدُفعتك)</h4>
+                    <h4 className="font-bold text-slate-700 text-sm mb-4">{t('uploadContextHeading')}</h4>
                     
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 block mb-1">الكلية</label>
-                      <input type="text" disabled value={studentData?.college_name || 'جاري التحميل...'} className="w-full bg-slate-200/50 text-slate-600 font-semibold p-2.5 rounded-xl border border-slate-200 text-xs cursor-not-allowed" />
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">{t('collegeLabel')}</label>
+                      <input type="text" disabled value={studentData?.college_name || t('loading')} className="w-full bg-slate-200/50 text-slate-600 font-semibold p-2.5 rounded-xl border border-slate-200 text-xs cursor-not-allowed" />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 block mb-1">القسم الأكاديمي</label>
-                      <input type="text" disabled value={studentData?.department || 'جاري التحميل...'} className="w-full bg-slate-200/50 text-slate-600 font-semibold p-2.5 rounded-xl border border-slate-200 text-xs cursor-not-allowed" />
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">{t('deptLabel')}</label>
+                      <input type="text" disabled value={studentData?.department || t('loading')} className="w-full bg-slate-200/50 text-slate-600 font-semibold p-2.5 rounded-xl border border-slate-200 text-xs cursor-not-allowed" />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 block mb-1">المستوى الدراسي</label>
-                      <input type="text" disabled value={studentData?.level || 'جاري التحميل...'} className="w-full bg-slate-200/50 text-slate-600 font-semibold p-2.5 rounded-xl border border-slate-200 text-xs cursor-not-allowed" />
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">{t('levelLabel')}</label>
+                      <input type="text" disabled value={studentData?.level || t('loading')} className="w-full bg-slate-200/50 text-slate-600 font-semibold p-2.5 rounded-xl border border-slate-200 text-xs cursor-not-allowed" />
                     </div>
                     
                     <p className="text-[10px] text-slate-500 font-medium bg-rose-50 p-2 rounded-lg border border-rose-100 mt-4 leading-relaxed">
-                      💡 ملاحظة: يتم ربط أي ملف تقوم برفعه تلقائياً بقسمك ومستواك لضمان عدم تشتت زملائك وظهوره في المكان الصحيح بالمكتبة.
+                      {t('uploadContextNote')}
                     </p>
                   </div>
 
@@ -610,11 +590,11 @@ export default function StudentDashboard() {
                     )}
 
                     <div>
-                      <label className="text-[11px] font-black text-slate-700 block mb-1.5">اسم المادة الدراسية <span className="text-rose-500">*</span></label>
+                      <label className="text-[11px] font-black text-slate-700 block mb-1.5">{t('courseNameLabel')} <span className="text-rose-500">*</span></label>
                       <input 
                         type="text" 
                         required
-                        placeholder="مثال: هندسة برمجيات، ذكاء اصطناعي..."
+                        placeholder={t('courseNamePlaceholder')}
                         value={uploadCourse}
                         onChange={(e) => setUploadCourse(e.target.value)}
                         className="w-full bg-white/80 focus:bg-white text-slate-800 font-medium p-3 rounded-xl border border-slate-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-xs outline-none" 
@@ -622,11 +602,11 @@ export default function StudentDashboard() {
                     </div>
                     
                     <div>
-                      <label className="text-[11px] font-black text-slate-700 block mb-1.5">عنوان أو وصف الملخص <span className="text-rose-500">*</span></label>
+                      <label className="text-[11px] font-black text-slate-700 block mb-1.5">{t('uploadTitleLabel')} <span className="text-rose-500">*</span></label>
                       <input 
                         type="text" 
                         required
-                        placeholder="مثال: ملخص الشابتر الأول، نماذج اختبارات..."
+                        placeholder={t('uploadTitlePlaceholder')}
                         value={uploadTitle}
                         onChange={(e) => setUploadTitle(e.target.value)}
                         className="w-full bg-white/80 focus:bg-white text-slate-800 font-medium p-3 rounded-xl border border-slate-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-xs outline-none" 
@@ -634,7 +614,7 @@ export default function StudentDashboard() {
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-black text-slate-700 block mb-1.5">الملف المرفق <span className="text-rose-500">*</span></label>
+                      <label className="text-[11px] font-black text-slate-700 block mb-1.5">{t('attachedFileLabel')} <span className="text-rose-500">*</span></label>
                       <input 
                         type="file" 
                         required
@@ -652,16 +632,15 @@ export default function StudentDashboard() {
                         {isUploading ? (
                           <>
                             <span className="w-4 h-4 rounded-full border-2 border-slate-500 border-t-transparent animate-spin"></span>
-                            <span>جاري الرفع والأرشفة...</span>
+                            <span>{t('uploadingBtn')}</span>
                           </>
                         ) : (
                           <>
-                            <span>رفع ونشر الملخص</span>
+                            <span>{t('submitUploadBtn')}</span>
                             <span className="text-lg">📤</span>
                           </>
                         )}
                       </button>
-
                     </div>
 
                   </form>
@@ -690,17 +669,17 @@ export default function StudentDashboard() {
             </button>
             <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2 select-none">
               <div className="w-1.5 h-3.5 rounded-full bg-[#0A2540]" />
-              <h2 className="text-sm font-black text-slate-900 uppercase">دليل كليات وأقسام جامعة إب الرقمية</h2>
+              <h2 className="text-sm font-black text-slate-900 uppercase">{t('modalGuideTitle')}</h2>
             </div>
             
             <div className="space-y-4 text-xs font-semibold">
               <div className="p-3.5 bg-slate-50/50 border border-slate-200/60 rounded-xl">
-                <h4 className="font-black text-emerald-600 mb-1">🏛️ كلية الهندسة والعمارة</h4>
-                <p className="text-slate-600 font-medium">هندسة الحاسبات والتحكم • الهندسة المدنية • الهندسة المعمارية</p>
+                <h4 className="font-black text-emerald-600 mb-1">{t('collegeEngArch')}</h4>
+                <p className="text-slate-600 font-medium">{t('deptEngList')}</p>
               </div>
               <div className="p-3.5 bg-slate-50/50 border border-slate-200/60 rounded-xl">
-                <h4 className="font-black text-[#0A2540] mb-1">💻 كلية حاسبات وتقنية المعلومات</h4>
-                <p className="text-slate-600 font-medium">علوم حاسوب • تكنولوجيا المعلومات IT • نظم معلومات IS</p>
+                <h4 className="font-black text-[#0A2540] mb-1">{t('collegeCSIT')}</h4>
+                <p className="text-slate-600 font-medium">{t('deptCSITList')}</p>
               </div>
             </div>
           </div>

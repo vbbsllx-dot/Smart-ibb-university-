@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { 
   UploadCloud, 
   ArrowRight, 
@@ -12,12 +13,12 @@ import {
   BookOpen, 
   AlertCircle, 
   Eye, 
-  EyeOff ,
+  EyeOff,
   Building2,
   GraduationCap,
 } from 'lucide-react';
 
-// 🤖 1️⃣ استيراد خدمة الذكاء الاصطناعي للمزامنة
+// 🤖 استيراد خدمة الذكاء الاصطناعي للمزامنة
 import { aiService } from '@/app/service/aiService';
 
 const universityStructure = [
@@ -59,7 +60,7 @@ const universityStructure = [
     ]
   }
 ];
-// 1️⃣ خريطة مسميات المستويات
+
 const levelNamesMap: Record<number, string> = {
   1: "المستوى الأول",
   2: "المستوى الثاني",
@@ -70,19 +71,21 @@ const levelNamesMap: Record<number, string> = {
   7: "المستوى السابع"
 };
 
-// 2️⃣ دالة تحديد أقصى عدد مستويات بناءً على القسم المختار
 const getMaxLevels = (depId: number | string): number => {
   if (depId === 'all' || !depId) return 7;
   
   const numId = Number(depId);
-  if ([1, 2, 3, 4].includes(numId)) return 5; // كلية الهندسة (5 سنوات)
-  if (numId === 8) return 5;                  // طب وجراحة الفم والأسنان (5 سنوات)
-  if (numId === 5) return 7;                  // الطب البشري (7 سنوات)
+  if ([1, 2, 3, 4].includes(numId)) return 5;
+  if (numId === 8) return 5;
+  if (numId === 5) return 7;
   
-  return 4;                                   // باقي الكليات والأقسام (4 سنوات)
+  return 4;
 };
 
-export default function FacultyUploadPage() {
+function FacultyUploadContent() {
+  const t = useTranslations('FacultyUpload');
+  const tGlobal = useTranslations('RegistrationDetails');
+
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [resourceType, setResourceType] = useState('accredited_book');
@@ -91,19 +94,18 @@ export default function FacultyUploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [isVisible, setIsVisible] = useState(true);
-  const [currentInstructorId, setCurrentInstructorId] = useState('جاري التعرف...');
+  const [currentInstructorId, setCurrentInstructorId] = useState(t('identifying'));
   const [doctorRealName, setDoctorRealName] = useState('');
   const router = useRouter();
 
   const searchParams = useSearchParams();
   const isEdit = searchParams.get('edit') === 'true'; 
   const resourceId = searchParams.get('id');
-;
-useEffect(() => {
-    const storedUsername = localStorage.getItem('university_username') || localStorage.getItem('faculty_username') || '';
-    setCurrentInstructorId(storedUsername);
 
-    // 🔍 استعلام جلب اسم الدكتور الصريح من جدول instructors
+  useEffect(() => {
+    const storedUsername = localStorage.getItem('university_username') || localStorage.getItem('faculty_username') || '';
+    setCurrentInstructorId(storedUsername || t('identifying'));
+
     const fetchDoctorName = async () => {
       if (!storedUsername) return;
       const numericId = parseInt(storedUsername);
@@ -137,7 +139,8 @@ useEffect(() => {
 
       setIsVisible(searchParams.get('visible') !== 'false'); 
     }
-  }, [isEdit, searchParams]);
+  }, [isEdit, searchParams, t]);
+
   const loadPdfJSFromSources = (): Promise<any> => {
     return new Promise((resolve) => {
       if (typeof window === 'undefined') return resolve(null);
@@ -200,39 +203,38 @@ useEffect(() => {
     });
   };
 
- const generatePdfThumbnail = async (pdfFile: File): Promise<Blob | null> => {
-  try {
-    // مهلة زمنية أقصاها 1.5 ثانية لاقتناص الغلاف، وإذا تأخر يتم التخطي فوراً دون تعليق الرفع
-    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
-    
-    const renderPromise = (async () => {
-      const pdfjsLib = await loadPdfJSFromSources();
-      if (!pdfjsLib) return null;
-
-      const arrayBuffer = await pdfFile.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
-      const page = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 1.5 });
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
+  const generatePdfThumbnail = async (pdfFile: File): Promise<Blob | null> => {
+    try {
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
       
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+      const renderPromise = (async () => {
+        const pdfjsLib = await loadPdfJSFromSources();
+        if (!pdfjsLib) return null;
 
-      if (!context) return null;
-      await page.render({ canvasContext: context, viewport }).promise;
+        const arrayBuffer = await pdfFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
 
-      return new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.8);
-      });
-    })();
+        if (!context) return null;
+        await page.render({ canvasContext: context, viewport }).promise;
 
-    return await Promise.race([renderPromise, timeoutPromise]);
-  } catch (err) {
-    console.warn("تخطي صامت للغلاف لضمان سرعة الرفع:", err);
-    return null;
-  }
-};
+        return new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.8);
+        });
+      })();
+
+      return await Promise.race([renderPromise, timeoutPromise]);
+    } catch (err) {
+      console.warn("تخطي صامت للغلاف لضمان سرعة الرفع:", err);
+      return null;
+    }
+  };
 
   const generateVideoThumbnail = async (videoFile: File): Promise<Blob | null> => {
     return new Promise((resolve) => {
@@ -266,7 +268,6 @@ useEffect(() => {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 👤 جلب الاسم الصريح للدكتور أولاً، وفي حال عدم وجوده يتم استخدام اسم المستخدم كخيار احتياطي
     const doctorFullName = 
       localStorage.getItem('faculty_name') || 
       localStorage.getItem('university_fullname') || 
@@ -280,11 +281,11 @@ useEffect(() => {
       doctorFullName;
 
     if (!instructorUsername) {
-      return alert('⚠️ خطأ في الجلسة: الرجاء تسجيل الدخول أولاً!');
+      return alert(t('alertSessionError'));
     }
 
     setIsUploading(true);
-    setStatusMessage('🧠 جاري معالجة البيانات وبث التحديثات سحابياً...');
+    setStatusMessage(t('statusProcessing'));
     
     try {
       let filePublicUrl = null;
@@ -293,7 +294,7 @@ useEffect(() => {
       const randomStr = Math.random().toString(36).substring(7);
 
       if (file) {
-        setStatusMessage('📸 جاري قراءة الملف واقتناص غلاف عالي الدقة (HD)...');
+        setStatusMessage(t('statusThumbnail'));
         let thumbnailBlob: Blob | null = null;
         if (file.type === 'application/pdf') {
           thumbnailBlob = await generatePdfThumbnail(file);
@@ -329,69 +330,67 @@ useEffect(() => {
         filePublicUrl = fUrl;
       }
 
-      setStatusMessage('💾 جاري توثيق السجلات وربط المرجع بالمعرف الأكاديمي...');
+      setStatusMessage(t('statusSavingDb'));
       let dbError = null;
-const finalDoctorName = doctorRealName || localStorage.getItem('faculty_name') || currentInstructorId;
 
-   if (isEdit) {
-      const { error } = await supabase
-        .from('resources')
-        .update({
-          title: title,
-          instructor_id: currentInstructorId, // 👈 إعادة حفظ الرقم الأكاديمي (202020) لتظهر في أرشيف الدكتور
-          resource_type: resourceType,
-          level_id: selectedLevel,        
-          dep_id: selectedDeptId, 
-          is_visible: isVisible,          
-          ...(filePublicUrl && { file_url: filePublicUrl }),
-          ...(thumbnailPublicUrl && { thumbnail_url: thumbnailPublicUrl })
-        })
-        .eq('id', parseInt(resourceId || '0')); 
-      
-      dbError = error;
-    } else {
-      const { error } = await supabase
-        .from('resources')
-        .insert({
-          title: title,
-          instructor_id: currentInstructorId, // 👈 إعادة حفظ الرقم الأكاديمي (202020) لتظهر في أرشيف الدكتور
-          file_url: filePublicUrl,
-          thumbnail_url: thumbnailPublicUrl, 
-          resource_type: resourceType,
-          level_id: selectedLevel,       
-          dep_id: selectedDeptId, 
-          is_visible: isVisible          
-        });
-      
-      dbError = error;
-    }
+      if (isEdit) {
+        const { error } = await supabase
+          .from('resources')
+          .update({
+            title: title,
+            instructor_id: currentInstructorId,
+            resource_type: resourceType,
+            level_id: selectedLevel,        
+            dep_id: selectedDeptId, 
+            is_visible: isVisible,          
+            ...(filePublicUrl && { file_url: filePublicUrl }),
+            ...(thumbnailPublicUrl && { thumbnail_url: thumbnailPublicUrl })
+          })
+          .eq('id', parseInt(resourceId || '0')); 
+        
+        dbError = error;
+      } else {
+        const { error } = await supabase
+          .from('resources')
+          .insert({
+            title: title,
+            instructor_id: currentInstructorId,
+            file_url: filePublicUrl,
+            thumbnail_url: thumbnailPublicUrl, 
+            resource_type: resourceType,
+            level_id: selectedLevel,       
+            dep_id: selectedDeptId, 
+            is_visible: isVisible          
+          });
+        
+        dbError = error;
+      }
       
       if (dbError) throw dbError;
 
-      // 🤖 2️⃣ التكشيف الذكي الآلي: إذا كان الملف المرفوع PDF يتم إرساله لسيرفر FastAPI
-      // 🤖 2️⃣ التكشيف الذكي الآلي: إرسال الملف مع كافة البيانات الوصفية لسيرفر الذكاء الاصطناعي
-if (file && file.type === 'application/pdf') {
-  try {
-    setStatusMessage('🤖 جاري إرسال المنهج وتكشيفه بداخل سيرفر الذكاء الاصطناعي...');
-    
-    // 🎯 تمرير كافة البيانات الوصفية لضمان ربطه بالمستوى والقسم والمسمى
-    await aiService.syncCurriculum({
-      file: file,
-      title: title,
-      dep_id: selectedDeptId,
-      level_id: selectedLevel,
-      resource_type: resourceType
-    });
+      // 🤖 التكشيف الذكي الآلي
+      if (file && file.type === 'application/pdf') {
+        try {
+          setStatusMessage(t('statusAiSync'));
+          
+          await aiService.syncCurriculum({
+            file: file,
+            title: title,
+            dep_id: selectedDeptId,
+            level_id: selectedLevel,
+            resource_type: resourceType
+          });
 
-  } catch (aiErr: any) {
-    console.error("❌ فشل التكشيف في سيرفر الذكاء الاصطناعي:", aiErr);
-    alert("⚠️ تم حفظ الملف في قواعد البيانات، لكن تعذر تكشيفه بداخل سيرفر الذكاء الاصطناعي. تأكد من تشغيل FastAPI!");
-  }
-}
-      alert(isEdit ? '🎉 تم تحديث بيانات المرجع بنجاح!' : '🎉 تم بث المرجع الدراسي واقتناص الغلاف وتكشيفه بداخل محرك الذكاء الاصطناعي بنجاح!');
+        } catch (aiErr: any) {
+          console.error("❌ فشل التكشيف في سيرفر الذكاء الاصطناعي:", aiErr);
+          alert(t('alertAiFailed'));
+        }
+      }
+      
+      alert(isEdit ? t('alertUpdateSuccess') : t('alertUploadSuccess'));
       router.push('/faculty'); 
     } catch (err: any) {
-      alert('❌ فشلت العملية السحابية: ' + err.message);
+      alert(t('alertFailed') + err.message);
     } finally {
       setIsUploading(false);
       setStatusMessage('');
@@ -399,36 +398,36 @@ if (file && file.type === 'application/pdf') {
   };
 
   return (
-    <div className="min-h-screen bg-[#F1F5F9] p-4 md:p-8 flex flex-col justify-between items-center font-sans relative overflow-hidden" dir="rtl">
+    <div className="min-h-screen bg-[#F1F5F9] p-4 md:p-8 flex flex-col justify-between items-center font-sans relative overflow-hidden">
       
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute w-[500px] h-[500px] rounded-full bg-sky-400/10 blur-[130px] top-[-10%] right-[-10%]" />
-        <div className="absolute w-[400px] h-[400px] rounded-full bg-emerald-400/10 blur-[120px] bottom-[-10%] left-[-10%]" />
+        <div className="absolute w-[500px] h-[500px] rounded-full bg-sky-400/10 blur-[130px] top-[-10%] end-[-10%]" />
+        <div className="absolute w-[400px] h-[400px] rounded-full bg-emerald-400/10 blur-[120px] bottom-[-10%] start-[-10%]" />
       </div>
 
       <div className="max-w-2xl w-full bg-white/90 backdrop-blur-xl rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-200/60 space-y-6 relative z-10 my-auto">
         
         <div className="border-b border-slate-100 pb-4 flex justify-between items-center select-none">
-          <div className="text-right">
+          <div className="text-start">
             <h1 className="text-base md:text-lg font-black text-[#0A2540] flex items-center gap-2">
-              <UploadCloud className="w-5 h-5 text-indigo-600" /> الرفع الأكاديمي المؤتمت للوسائط
+              <UploadCloud className="w-5 h-5 text-indigo-600" /> {t('title')}
             </h1>
             <p className="text-[10px] md:text-xs text-slate-500 font-bold mt-0.5">
-              المعرف الحالي للدكتور: <span className="font-mono text-indigo-600 font-black bg-indigo-50 px-2 py-0.5 rounded-md">{currentInstructorId}</span>
+              {t('instructorIdLabel')} <span className="font-mono text-indigo-600 font-black bg-indigo-50 px-2 py-0.5 rounded-md">{currentInstructorId}</span>
             </p>
           </div>
           <Link href="/faculty" className="text-[11px] font-black bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1">
-            إلغاء والعودة <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+            {t('cancelBtn')} <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
           </Link>
         </div>
 
-        <form onSubmit={handleUpload} className="space-y-5 text-right">
+        <form onSubmit={handleUpload} className="space-y-5 text-start">
           
           <div className="space-y-1.5">
-            <label className="text-xs font-black text-slate-700 flex items-center gap-1">📝 عنوان المرجع أو المحاضرة الأكاديمية:</label>
+            <label className="text-xs font-black text-slate-700 flex items-center gap-1">{t('titleLabel')}</label>
             <input 
               type="text" 
-              placeholder="مثال: هندسة التحكم الآلي - الفصل الثاني" 
+              placeholder={t('titlePlaceholder')} 
               className="w-full p-3.5 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none bg-white shadow-inner focus:border-indigo-500/40 transition-colors"
               value={title} 
               onChange={(e) => setTitle(e.target.value)}
@@ -436,65 +435,64 @@ if (file && file.type === 'application/pdf') {
           </div>
 
           <div>
-  <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
-    <Building2 className="w-4 h-4 text-[#059669]" /> الكلية والتخصص المستهدف:
-  </label>
-  <select 
-    className="w-full p-3.5 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs font-black text-[#062c35] focus:outline-none focus:border-[#059669] transition-all cursor-pointer"
-    value={selectedDeptId}
-    onChange={(e) => {
-      const newDeptId = parseInt(e.target.value);
-      setSelectedDeptId(newDeptId);
-      // 🔄 إعادة ضبط المستوى إلى الأول تلقائياً في حال تجاوز الحد الأقصى للقسم الجديد
-      if (selectedLevel > getMaxLevels(newDeptId)) {
-        setSelectedLevel(1);
-      }
-    }}
-  >
-    {universityStructure.map((college) => (
-      <optgroup key={college.name} label={`🏛️ ${college.name}`} className="bg-white text-[#059669] font-bold">
-        {college.departments.map((dept) => (
-          <option key={dept.id} value={dept.id} className="bg-white text-slate-800 font-normal">
-            ➔ {dept.name}
-          </option>
-        ))}
-      </optgroup>
-    ))}
-  </select>
-</div>
-
-            <div className="space-y-1.5">
-  <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
-    <GraduationCap className="w-4 h-4 text-[#059669]" /> المستوى الدراسي المستهدف:
-  </label>
-  <select 
-    className="w-full p-3.5 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs font-black text-[#062c35] focus:outline-none focus:border-[#059669] transition-all cursor-pointer"
-    value={selectedLevel}
-    onChange={(e) => setSelectedLevel(parseInt(e.target.value))}
-  >
-    {Array.from({ length: getMaxLevels(selectedDeptId) }, (_, i) => i + 1).map((lvl) => (
-      <option key={lvl} value={lvl}>
-        {levelNamesMap[lvl]}
-      </option>
-    ))}
-  </select>
-</div>
+            <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-[#059669]" /> {t('deptLabel')}
+            </label>
+            <select 
+              className="w-full p-3.5 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs font-black text-[#062c35] focus:outline-none focus:border-[#059669] transition-all cursor-pointer"
+              value={selectedDeptId}
+              onChange={(e) => {
+                const newDeptId = parseInt(e.target.value);
+                setSelectedDeptId(newDeptId);
+                if (selectedLevel > getMaxLevels(newDeptId)) {
+                  setSelectedLevel(1);
+                }
+              }}
+            >
+              {universityStructure.map((college, cIdx) => (
+                <optgroup key={college.name} label={`🏛️ ${tGlobal(`colleges.${cIdx + 1}` as any) || college.name}`} className="bg-white text-[#059669] font-bold">
+                  {college.departments.map((dept) => (
+                    <option key={dept.id} value={dept.id} className="bg-white text-slate-800 font-normal">
+                      ➔ {tGlobal(`departments.${dept.id}` as any) || dept.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-black text-slate-700 flex items-center gap-1">🏷️ تصنيف وتبويب المرجع في المكتبة الرقمية:</label>
+            <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+              <GraduationCap className="w-4 h-4 text-[#059669]" /> {t('levelLabel')}
+            </label>
+            <select 
+              className="w-full p-3.5 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs font-black text-[#062c35] focus:outline-none focus:border-[#059669] transition-all cursor-pointer"
+              value={selectedLevel}
+              onChange={(e) => setSelectedLevel(parseInt(e.target.value))}
+            >
+              {Array.from({ length: getMaxLevels(selectedDeptId) }, (_, i) => i + 1).map((lvl) => (
+                <option key={lvl} value={lvl}>
+                  {tGlobal(`levels.${lvl}` as any) || levelNamesMap[lvl]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-black text-slate-700 flex items-center gap-1">{t('typeLabel')}</label>
             <select 
               className="w-full p-3.5 rounded-xl border border-slate-200 text-xs font-black bg-white text-slate-800 focus:outline-none focus:border-indigo-500/40 transition-all cursor-pointer"
               value={resourceType} 
               onChange={(e) => setResourceType(e.target.value)}
             >
-              <option value="accredited_book">📚 كتاب معتمد مراجع تخصصية (يفتح كشف درجات الطلاب)</option>
-              <option value="summary_pdf">📄 ملخص PDF وأوراق محاضرات إضافية (مادة إثرائية مساندة)</option>
-              <option value="educational_video">🎥 فيديو تعليمي دراسي مسجل (مادة إثرائية مساندة)</option>
+              <option value="accredited_book">{t('typeAccreditedBook')}</option>
+              <option value="summary_pdf">{t('typeSummaryPdf')}</option>
+              <option value="educational_video">{t('typeEducationalVideo')}</option>
             </select>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-black text-slate-700 flex items-center gap-1">📁 اختيار الملف الفعلي المستهدف للرفع:</label>
+            <label className="text-xs font-black text-slate-700 flex items-center gap-1">{t('fileLabel')}</label>
             <div className="relative border-2 border-dashed border-slate-200/80 hover:border-indigo-500/40 transition-colors rounded-2xl p-4 bg-slate-50/50 flex flex-col items-center justify-center text-center group cursor-pointer">
               <input 
                 type="file" 
@@ -507,13 +505,13 @@ if (file && file.type === 'application/pdf') {
                   <>
                     {file.type === "application/pdf" ? <FileText className="w-8 h-8 text-amber-500" /> : <PlayCircle className="w-8 h-8 text-emerald-500" />}
                     <span className="text-xs font-extrabold text-slate-900 truncate max-w-xs">{file.name}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">الحجم: {(file.size / (1024 * 1024)).toFixed(2)} MB</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{t('sizeLabel')} {(file.size / (1024 * 1024)).toFixed(2)} MB</span>
                   </>
                 ) : (
                   <>
                     <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                    <span className="text-xs font-black text-slate-700">اضغط هنا أو اسحب الملف لرفعه مباشرة</span>
-                    <span className="text-[10px] text-slate-400 font-bold">يدعم ملفات PDF أو مقاطع فيديو MP4</span>
+                    <span className="text-xs font-black text-slate-700">{t('fileDropText')}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">{t('fileSupportedFormats')}</span>
                   </>
                 )}
               </div>
@@ -521,13 +519,13 @@ if (file && file.type === 'application/pdf') {
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center justify-between select-none">
-            <div className="text-right space-y-0.5">
+            <div className="text-start space-y-0.5">
               <span className="text-xs font-black text-slate-900 flex items-center gap-1">
                 {isVisible ? <Eye className="w-3.5 h-3.5 text-emerald-600" /> : <EyeOff className="w-3.5 h-3.5 text-slate-400" />}
-                تفعيل النشر الفوري والمباشر في مكتبة الطلاب؟
+                {t('publishToggleLabel')}
               </span>
               <span className="text-[10px] text-slate-500 font-bold block leading-relaxed">
-                عند إيقاف المفتاح، سيحفظ المرجع كـ "مسودة صامتة" ولن يظهر للطالب حتى تقوم بتفعيله.
+                {t('publishToggleDesc')}
               </span>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -537,7 +535,7 @@ if (file && file.type === 'application/pdf') {
                 checked={isVisible} 
                 onChange={(e) => setIsVisible(e.target.checked)}
               />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
             </label>
           </div>
 
@@ -553,7 +551,7 @@ if (file && file.type === 'application/pdf') {
             disabled={isUploading}
             className="w-full bg-gradient-to-r from-[#0A2540] to-[#0E3354] hover:opacity-95 text-white font-black py-4 rounded-xl text-xs cursor-pointer transition-all active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md"
           >
-            {isUploading ? '⏳ محرك الموازنة السحابي يعمل الآن...' : '🚀 بث المرجع واقتناص الغلاف وتكشيفه آلياً بالذكاء الاصطناعي'}
+            {isUploading ? t('uploadingBtn') : t('submitBtn')}
           </button>
 
         </form>
@@ -563,5 +561,17 @@ if (file && file.type === 'application/pdf') {
         REGIONAL FILE CONVERSION METADATA CONTROLLER // ACCESS OK
       </footer>
     </div>
+  );
+}
+
+export default function FacultyUploadPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F1F5F9] flex items-center justify-center text-slate-500 text-xs font-mono">
+        INITIALIZING MEDIA UPLOADER NODE...
+      </div>
+    }>
+      <FacultyUploadContent />
+    </Suspense>
   );
 }
