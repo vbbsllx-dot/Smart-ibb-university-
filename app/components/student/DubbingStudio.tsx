@@ -149,6 +149,7 @@ export default function DubbingStudio({ studentData }: DubbingStudioProps) {
         </div>
         
       </div>
+      
     </section>
   );
 }
