@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/dubbing_backend
 /.pnp
 .pnp.*
 .yarn/*

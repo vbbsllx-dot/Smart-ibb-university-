@@ -24,7 +24,8 @@ import {
   Unlock,
   AlertOctagon,
   ShieldCheck,
-  Send
+  Send,
+  Sparkles
 } from 'lucide-react';
 
 const departmentNamesMap: { [key: string | number]: string } = {
@@ -53,6 +54,10 @@ interface StudentRosterTableProps {
   onSaveAllData: () => void;
   isSaving: boolean;
   onExportToExcel: () => void;
+  attendanceSessions: string[];
+  setAttendanceSessions: React.Dispatch<React.SetStateAction<string[]>>;
+  attendanceData: any;
+  setAttendanceData: React.Dispatch<React.SetStateAction<any>>;
 }
 
 export default function StudentRosterTable({
@@ -70,7 +75,11 @@ export default function StudentRosterTable({
   onCellChange,
   onSaveAllData,
   isSaving,
-  onExportToExcel
+  onExportToExcel,
+  attendanceSessions = [],
+  setAttendanceSessions,
+  attendanceData = {},
+  setAttendanceData
 }: StudentRosterTableProps) {
   const t = useTranslations('StudentRosterTable');
   const tGlobal = useTranslations('RegistrationDetails');
@@ -80,14 +89,6 @@ export default function StudentRosterTable({
   const [newColumnName, setNewColumnName] = useState('');
   const [editingCol, setEditingCol] = useState<string | null>(null);
   const [tempColName, setTempColName] = useState('');
-
-  // 📋 حالات كشف الحضور والغياب وقفل الكشف
-  const [attendanceSessions, setAttendanceSessions] = useState<string[]>([
-    t('defaultLecture1'), 
-    t('defaultLecture2'), 
-    t('defaultLecture3')
-  ]);
-  const [attendanceData, setAttendanceData] = useState<{[studentId: string]: {[session: string]: string}}>({});
   const [newSessionName, setNewSessionName] = useState('');
   const [isSavingAttendance, setIsSavingAttendance] = useState(false);
 
@@ -97,36 +98,16 @@ export default function StudentRosterTable({
   const [isSubmittedToControl, setIsSubmittedToControl] = useState(false);
   const [isControlSending, setIsControlSending] = useState(false);
 
-  // 📡 جلب الحضور وقفل الكشف تلقائياً فور تحديد المرجع
+  // 📡 جلب حالة القفل والاعتماد للكشف
   useEffect(() => {
-    const fetchAttendanceAndLockStatus = async () => {
+    const fetchLockStatus = async () => {
       if (!selectedResource || !selectedResource.id) {
+        setIsGradeLocked(false);
+        setIsSubmittedToControl(false);
         return;
       }
 
       try {
-        const { data: attData } = await supabase
-          .from('attendance_records')
-          .select('*')
-          .eq('resource_id', selectedResource.id);
-
-        if (attData && attData.length > 0) {
-          const formatted: any = {};
-          const sessionsSet = new Set<string>(attendanceSessions);
-
-          attData.forEach((row) => {
-            const cleanStudentId = String(row.student_id).trim();
-            const cleanSession = String(row.session_name).trim();
-
-            if (!formatted[cleanStudentId]) formatted[cleanStudentId] = {};
-            formatted[cleanStudentId][cleanSession] = row.status || t('statusPresent');
-            sessionsSet.add(cleanSession);
-          });
-
-          setAttendanceData(formatted);
-          setAttendanceSessions(Array.from(sessionsSet));
-        }
-
         const { data: lockData } = await supabase
           .from('grade_locks')
           .select('*')
@@ -141,12 +122,12 @@ export default function StudentRosterTable({
           setIsSubmittedToControl(false);
         }
       } catch (err) {
-        console.error("Error fetching attendance & lock data:", err);
+        console.error("Error fetching lock data:", err);
       }
     };
 
-    fetchAttendanceAndLockStatus();
-  }, [selectedResource]);
+    fetchLockStatus();
+  }, [selectedResource?.id]);
 
   // 🔒 دالة تبديل الاعتماد والقفل
   const handleToggleGradeLock = async () => {
@@ -183,7 +164,8 @@ export default function StudentRosterTable({
       setIsLockingLoading(false);
     }
   };
-const CONTROL_WHATSAPP_NUMBER = "967770689832"; 
+
+  const CONTROL_WHATSAPP_NUMBER = "967770689832"; 
 
   const handleSendToControl = async () => {
     if (studentsRoster.length === 0) {
@@ -213,22 +195,17 @@ const CONTROL_WHATSAPP_NUMBER = "967770689832";
 
       if (error) throw error;
 
-      // 1. استخراج المتغيرات والبيانات الحية للكشف
       const doctorName = instructorInfo?.name || t('instructorDefault');
       const subjectName = manualSubjectName.trim() ? manualSubjectName : "....................";
-      const deptName = tGlobal(`departments.${selectedResource?.dep_id || selectedResource?.dept_id}` as any) || departmentNamesMap[Number(selectedResource?.dep_id || selectedResource?.dept_id)] || "القسم العلمي";
-      const levelName = tGlobal(`levels.${selectedResource?.level_id}` as any) || levelNamesMap[Number(selectedResource?.level_id)] || "المستوى الدراسي";
+      const deptName = departmentNamesMap[Number(selectedResource?.dep_id || selectedResource?.dept_id)] || "القسم العلمي";
+      const levelName = levelNamesMap[Number(selectedResource?.level_id)] || "المستوى الدراسي";
       const collegeName = instructorInfo?.college_name || "جامعة إب";
       const currentDate = new Date().toLocaleDateString('ar-YE');
 
-      /// 🎯 2. تحديد الترم الدراسي ديناميكياً
       const rawSemester = selectedResource?.semester ?? selectedResource?.semester_id ?? selectedResource?.term ?? 1;
       const isSecondSem = String(rawSemester) === '2' || String(rawSemester).toLowerCase() === 'second';
-      const semesterName = isSecondSem 
-        ? (t?.('semester2') || "الترم الثاني") 
-        : (t?.('semester1') || "الترم الأول");
+      const semesterName = isSecondSem ? (t?.('semester2') || "الترم الثاني") : (t?.('semester1') || "الترم الأول");
 
-      // 3. بناء جدول الإكسل وتضمين الترم في الترويسة
       const XLSX = await import('xlsx');
       const wsData: any[][] = [
         ["🏛️ جمهورية اليمن - جامعة إب - كشف درجات معتمد للكنترول"],
@@ -246,7 +223,7 @@ const CONTROL_WHATSAPP_NUMBER = "967770689832";
 
         const row = [studentId, studentName, studentStatus];
         customColumns.forEach((col) => {
-          row.push(cellData[student.student_id]?.[col] || "");
+          row.push(cellData[studentId]?.[col] || "");
         });
         wsData.push(row);
       });
@@ -298,7 +275,6 @@ const CONTROL_WHATSAPP_NUMBER = "967770689832";
       await supabase.storage.from('university-files').upload(filePath, blob);
       const { data: { publicUrl } } = supabase.storage.from('university-files').getPublicUrl(filePath);
 
-      // 4. رسالة الواتساب المتضمنة الترم الدراسي
       const whatsappMessage = 
 `🏛️ *كشف درجات رسمي معتمد - جامعة إب*
 ━━━━━━━━━━━━━━━━━━━━
@@ -326,6 +302,7 @@ ${publicUrl}
       setIsControlSending(false);
     }
   };
+
   const handleRenameColumn = (oldName: string, newName: string) => {
     if (isGradeLocked) return alert(t('alertLockedCantEdit'));
     if (!newName.trim() || oldName === newName) return;
@@ -371,17 +348,68 @@ ${publicUrl}
     setNewSessionName('');
   };
 
+  const handleAutoAddNextSession = () => {
+    let nextNum = attendanceSessions.length + 1;
+
+    const existingNumbers = attendanceSessions
+      .map(s => {
+        const match = s.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 0;
+      })
+      .filter(n => n > 0);
+
+    if (existingNumbers.length > 0) {
+      nextNum = Math.max(...existingNumbers) + 1;
+    }
+
+    const nextSessionName = `المحاضرة ${nextNum}`;
+
+    if (attendanceSessions.includes(nextSessionName)) {
+      return alert(`المحاضرة (${nextSessionName}) مضافة مسبقاً!`);
+    }
+
+    setAttendanceSessions([...attendanceSessions, nextSessionName]);
+  };
+
+  const handleAutoGenerateSemesterSessions = (totalCount: number = 12) => {
+    if (attendanceSessions.length > 0) {
+      if (!confirm(`سيتم إعادة تهيئة جدول الحضور وتوليد (${totalCount}) محاضرة متسلسلة، هل تريد المتابعة؟`)) return;
+    }
+
+    const generated: string[] = [];
+    for (let i = 1; i <= totalCount; i++) {
+      generated.push(`المحاضرة ${i}`);
+    }
+
+    setAttendanceSessions(generated);
+  };
+
+  const handleDeleteSession = (sessionToDelete: string) => {
+    if (!confirm(`هل أنت متأكد من حذف (${sessionToDelete})؟`)) return;
+
+    setAttendanceSessions(attendanceSessions.filter(s => s !== sessionToDelete));
+    setAttendanceData((prev: any) => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(studentId => {
+        if (updated[studentId]) {
+          delete updated[studentId][sessionToDelete];
+        }
+      });
+      return updated;
+    });
+  };
+
   const handleToggleAttendance = (rawStudentId: string, rawSession: string) => {
     const studentId = String(rawStudentId).trim();
     const session = String(rawSession).trim();
 
-    setAttendanceData((prev) => {
-      const currentStatus = prev[studentId]?.[session] || t('statusPresent');
+    setAttendanceData((prev: any) => {
+      const currentStatus = prev?.[studentId]?.[session] || t('statusPresent');
       const nextStatus = currentStatus === t('statusPresent') ? t('statusAbsent') : currentStatus === t('statusAbsent') ? t('statusExcused') : t('statusPresent');
       return {
         ...prev,
         [studentId]: {
-          ...(prev[studentId] || {}),
+          ...(prev?.[studentId] || {}),
           [session]: nextStatus
         }
       };
@@ -391,69 +419,53 @@ ${publicUrl}
   const handleSetAllAttendanceForSession = (session: string, status: string) => {
     const updated: any = { ...attendanceData };
     studentsRoster.forEach((s) => {
-      if (!updated[s.student_id]) updated[s.student_id] = {};
-      updated[s.student_id][session] = status;
+      const studentId = String(s.student_id || s.id || '').trim();
+      if (!updated[studentId]) updated[studentId] = {};
+      updated[studentId][session] = status;
     });
     setAttendanceData(updated);
   };
 
   const handleSaveAttendanceRecords = async () => {
     if (studentsRoster.length === 0) return alert(t('alertNoAttendanceToSave'));
+    if (!selectedResource || !selectedResource.id) {
+      return alert("يرجى حفظ كشف الدرجات أولاً لإنشاء مرجع رسمي للمادة قبل حفظ الحضور.");
+    }
     setIsSavingAttendance(true);
 
     try {
-      let targetResourceId = selectedResource?.id;
+      const targetResourceId = selectedResource.id;
 
-      if (!targetResourceId) {
-        const loggedInInstructor = String(instructorInfo?.id || localStorage.getItem('university_username') || '').trim();
+      const { error: deleteError } = await supabase
+        .from('attendance_records')
+        .delete()
+        .eq('resource_id', targetResourceId);
 
-        const { data: existingRes } = await supabase
-          .from('resources')
-          .select('id')
-          .eq('instructor_id', loggedInInstructor)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      if (deleteError) throw deleteError;
 
-        if (existingRes) {
-          targetResourceId = existingRes.id;
-        } else {
-          const { data: newRes, error: resError } = await supabase
-            .from('resources')
-            .insert({
-              instructor_id: loggedInInstructor,
-              title: manualSubjectName.trim() || activeRosterHeader || 'كشف حضور وغياب',
-              resource_type: 'saved_grade_roster',
-              file_url: 'official_roster'
-            })
-            .select()
-            .single();
-
-          if (resError) throw resError;
-          targetResourceId = newRes.id;
-        }
-      }
-
-      const rowsToUpsert: any[] = [];
-      Object.keys(attendanceData).forEach((studentId) => {
-        const cleanStudentId = String(studentId).trim();
-        Object.keys(attendanceData[studentId]).forEach((sessionName) => {
+      const rowsToInsert: any[] = [];
+      studentsRoster.forEach((student) => {
+        const cleanStudentId = String(student.student_id || student.academic_id || student.id || '').trim();
+        
+        attendanceSessions.forEach((sessionName) => {
           const cleanSession = String(sessionName).trim();
-          rowsToUpsert.push({
+          const currentStatus = attendanceData[cleanStudentId]?.[cleanSession] || t('statusPresent');
+          
+          rowsToInsert.push({
             resource_id: targetResourceId,
             student_id: cleanStudentId,
             session_name: cleanSession,
-            status: String(attendanceData[studentId][sessionName]).trim()
+            status: String(currentStatus).trim()
           });
         });
       });
 
-      if (rowsToUpsert.length > 0) {
-        const { error } = await supabase
+      if (rowsToInsert.length > 0) {
+        const { error: insertError } = await supabase
           .from('attendance_records')
-          .upsert(rowsToUpsert, { onConflict: 'resource_id,student_id,session_name' });
+          .insert(rowsToInsert);
 
-        if (error) throw error;
+        if (insertError) throw insertError;
       }
 
       alert(t('alertAttendanceSaved'));
@@ -486,7 +498,7 @@ ${publicUrl}
   };
 
   const filteredStudents = studentsRoster.filter(student => {
-    const matchesSearch = student.name.includes(searchTerm) || student.student_id.includes(searchTerm);
+    const matchesSearch = student.name?.includes(searchTerm) || student.student_id?.includes(searchTerm);
     if (!matchesSearch) return false;
 
     if (viewMode === 'attendance' && attendanceFilter !== 'all') {
@@ -722,7 +734,7 @@ ${publicUrl}
         </div>
       )}
 
-      {/* ترويسة الجدول مع محرك البحث والفلترة */}
+      {/* ترويسة الجدول مع محرك البحث والفلترة وإدارة المحاضرات */}
       <div className="bg-white/80 border-b border-slate-200/60 px-6 py-4 flex flex-col gap-4 print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -761,7 +773,7 @@ ${publicUrl}
           </div>
         </div>
 
-        {/* 📋 أزرار القوالب السريعة + حقل إضافة عمود مخصص */}
+        {/* 📋 أزرار القوالب السريعة + حقل إضافة عمود مخصص لكشف الدرجات */}
         {viewMode === 'grades' && studentsRoster.length > 0 && !isGradeLocked && (
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 select-none">
             <span className="text-[10px] font-black text-slate-500">{t('quickTemplates')}</span>
@@ -785,24 +797,41 @@ ${publicUrl}
           </div>
         )}
 
-        {/* أزرار إضافة محاضرات جديدة */}
+        {/* ⚡ أزرار المحاضرات التلقائية لكشف الحضور */}
         {viewMode === 'attendance' && (
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 select-none">
-            <span className="text-[10px] font-black text-slate-500">{t('addSessionLabel')}</span>
-            <form onSubmit={handleAddSession} className="flex items-center gap-1">
+            <button 
+              type="button" 
+              onClick={handleAutoAddNextSession}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-3 py-1.5 rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5 transition-all active:scale-95"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>+ المحاضرة التالية تلقائياً</span>
+            </button>
+
+            <button 
+              type="button" 
+              onClick={() => handleAutoGenerateSemesterSessions(12)}
+              className="bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <span>توليد ترم كامل (12 محاضرة)</span>
+            </button>
+
+            <form onSubmit={handleAddSession} className="ms-auto flex items-center gap-1">
               <input 
                 type="text" 
-                placeholder={t('sessionPlaceholder')} 
+                placeholder={t('sessionPlaceholder') || "اسم محاضرة مخصص..."} 
                 className="p-1.5 border border-slate-200 rounded-lg text-[10px] bg-white focus:outline-none font-semibold shadow-inner"
                 value={newSessionName}
                 onChange={(e) => setNewSessionName(e.target.value)}
               />
-              <button type="submit" className="bg-sky-700 text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm cursor-pointer hover:opacity-95">
-                {t('btnAddSession')}
+              <button type="submit" className="bg-[#0A2540] text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm cursor-pointer hover:opacity-95">
+                {t('btnAddSession') || "إضافة"}
               </button>
             </form>
           </div>
         )}
+
       </div>
 
       {/* شريط الإجراءات والملفات لكشف الدرجات */}
@@ -988,13 +1017,9 @@ ${publicUrl}
             </tbody>
           </table>
 
-
-
-          {/* 🖨️ 👇 هنا يوضع الكود رقم 5: التوقيع الرقمي والـ QR Code المخصص للطباعة فقط */}
+          {/* 🖨️ التوقيع الرقمي والـ QR المخصص للطباعة */}
           {viewMode === 'grades' && (
             <div className="hidden print:flex justify-between items-end mt-8 pt-4 border-t-2 border-slate-800 text-xs w-full text-slate-900">
-              
-              {/* جهة اليمين: توقيع الدكتور المعتمد تحت اسمه */}
               <div className="space-y-1 text-start">
                 <p className="font-black">أستاذ المادة المعتمد: {instructorInfo?.name || "د. ...................."}</p>
                 <p className="text-[10px] font-mono text-slate-600">المعرف الأكاديمي: {instructorInfo?.id}</p>
@@ -1015,7 +1040,6 @@ ${publicUrl}
                 )}
               </div>
 
-              {/* الوسط: ختم النظام وتاريخ الرصد */}
               <div className="text-center space-y-0.5">
                 <div className="border border-slate-800 px-3 py-1 rounded-lg text-[9px] font-black uppercase bg-slate-50">
                   وثيقة درجات رسمية معتمدة
@@ -1024,10 +1048,10 @@ ${publicUrl}
                   تاريخ الاعتماد: {new Date().toLocaleString('ar-YE')}
                 </p>
               </div>
-{/* جهة اليسار: رمز التحقق الذكي QR Code المباشر */}
-<div className="flex flex-col items-center space-y-1">
-  <img 
-    src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
+
+              <div className="flex flex-col items-center space-y-1">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
 `🏛️ جامعة إب - وثيقة درجات معتمدة
 ━━━━━━━━━━━━━━━━━━━━
 👤 أستاذ المادة: ${instructorInfo?.name || 'د. غير معروف'}
@@ -1035,13 +1059,12 @@ ${publicUrl}
 🔒 الاعتماد: موقع وموثق رقمياً
 🕒 تاريخ التوثيق: ${new Date().toLocaleDateString('ar-YE')}
 ━━━━━━━━━━━━━━━━━━━━`
-    )}`}
-    alt="Verification QR"
-    className="w-16 h-16 border border-slate-300 p-1 rounded-lg bg-white shadow-xs"
-  />
-  <span className="text-[8px] font-mono text-slate-500 font-bold">SCAN TO VERIFY</span>
-</div>
-
+                  )}`}
+                  alt="Verification QR"
+                  className="w-16 h-16 border border-slate-300 p-1 rounded-lg bg-white shadow-xs"
+                />
+                <span className="text-[8px] font-mono text-slate-500 font-bold">SCAN TO VERIFY</span>
+              </div>
             </div>
           )}
 
@@ -1060,9 +1083,20 @@ ${publicUrl}
                 <th className="px-4 py-4 text-center font-black print:border print:p-2">{t('thWarningStatus')}</th>
                 
                 {attendanceSessions.map((session, index) => (
-                  <th key={index} className="px-4 py-3 text-center border-s border-slate-700 bg-[#0e3a45] print:text-slate-900 print:bg-slate-100 print:border">
+                  <th key={index} className="px-3 py-3 text-center border-s border-slate-700 bg-[#0e3a45] print:text-slate-900 print:bg-slate-100 print:border group relative">
                     <div className="flex flex-col items-center gap-1">
-                      <span>{session}</span>
+                      <div className="flex items-center justify-center gap-1">
+                        <span>{session}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSession(session)}
+                          title="حذف المحاضرة"
+                          className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-rose-600/30 text-rose-300 rounded transition-all print:hidden cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+
                       <div className="flex items-center gap-1 text-[9px] font-normal print:hidden">
                         <button
                           type="button"
@@ -1151,8 +1185,6 @@ ${publicUrl}
           </table>
         </div>
       )}
-
-      
 
       {(!selectedResource && studentsRoster.length === 0) && (
         <div className="text-center py-16 text-slate-400 bg-white/30 font-bold text-xs select-none space-y-2 print:hidden">

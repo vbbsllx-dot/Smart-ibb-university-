@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useTranslations } from 'next-intl';
+
 import { 
   FolderGit2, 
   UploadCloud, 
@@ -16,12 +18,10 @@ import {
   EyeOff,
   Trash2,
   RefreshCw,
-  Sparkles,
   Search,
   Pencil,
   Archive,
-  X,
-  CheckCircle2
+  X
 } from 'lucide-react';
 
 const universityStructure = [
@@ -51,8 +51,13 @@ const universityStructure = [
 ];
 
 export default function ProjectsManager() {
+  const t = useTranslations('ProjectsManager');
+
+  // حالة التحقق هل المستخدم أدمن أم أكاديمي
+  const [isAdmin, setIsAdmin] = useState(false);
+
   // حالة نموذج الإدخال والتعديل
-  const [editingId, setEditingId] = useState<number | null>(null); // معرف المشروع الجاري تعديله
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [projectTitle, setProjectTitle] = useState('');
   const [selectedDeptId, setSelectedDeptId] = useState<number>(1);
   const [supervisor, setSupervisor] = useState('');
@@ -71,10 +76,28 @@ export default function ProjectsManager() {
   const [statusMsg, setStatusMsg] = useState('');
 
   // حالة الأرشيف ونافذة التصفح والبحث
-  const [showArchiveModal, setShowArchiveModal] = useState(false); // التحكم بفتح وإغلاق الأرشيف
-  const [searchQuery, setSearchQuery] = useState(''); // شريط البحث
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [projectsList, setProjectsList] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+
+  // التحقق من صلاحيات المستخدم عند التحميل
+  useEffect(() => {
+    const checkUserRole = () => {
+      const role = localStorage.getItem('user_role') || localStorage.getItem('role');
+      const facultyName = localStorage.getItem('faculty_name');
+      const universityUsername = localStorage.getItem('university_username');
+
+      if (role === 'admin' || (!facultyName && universityUsername === 'admin')) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    };
+
+    checkUserRole();
+    fetchProjectsList();
+  }, []);
 
   // جلب قائمة الأرشيف
   const fetchProjectsList = async () => {
@@ -89,10 +112,6 @@ export default function ProjectsManager() {
     }
     setLoadingList(false);
   };
-
-  useEffect(() => {
-    fetchProjectsList();
-  }, []);
 
   // ✏️ بدء عملية التعديل على مشروع مأرشف
   const handleStartEdit = (proj: any) => {
@@ -109,10 +128,9 @@ export default function ProjectsManager() {
     
     setPdfFile(null);
     setZipFile(null);
-    setShowArchiveModal(false); // إغلاق النافذة للتركيز على التعديل
+    setShowArchiveModal(false);
   };
 
-  // إلغاء الوضعية والإعادة للجديد
   const handleCancelEdit = () => {
     setEditingId(null);
     setProjectTitle('');
@@ -126,158 +144,141 @@ export default function ProjectsManager() {
   };
 
   const validateFileExtension = (file: File, allowedExtensions: string[]) => {
-  const fileName = file.name.toLowerCase();
-  return allowedExtensions.some(ext => fileName.endsWith(ext));
-};
+    const fileName = file.name.toLowerCase();
+    return allowedExtensions.some(ext => fileName.endsWith(ext));
+  };
 
-  // 🚀 حفظ المرفوع سواء (إضافة جديد أو تحديث مشروع)
   const handleSaveProject = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // 1. قائمة التحقق من الحقول المطلوبة
-  const requiredFields = [
-    { value: projectTitle, message: "الرجاء كتابة عنوان المشروع!" },
-    { value: projectDesc, message: "الرجاء كتابة ملخص المشروع (Abstract)!" },
-    { value: studentsNames, message: "الرجاء إدخال أسماء الطلاب!" },
-    { value: supervisor, message: "الرجاء إدخال اسم مشرف المشروع!" },
-    { value: graduationYear, message: "الرجاء إدخال سنة التخرج!" },
-  ];
+    const requiredFields = [
+      { value: projectTitle, message: t('alertTitleRequired') },
+      { value: projectDesc, message: t('alertAbstractRequired') },
+      { value: studentsNames, message: t('alertStudentsRequired') },
+      { value: supervisor, message: t('alertSupervisorRequired') },
+      { value: graduationYear, message: t('alertYearRequired') },
+    ];
 
-  // 2. التحقق من أن الحقول ليست فارغة
-  for (const field of requiredFields) {
-    if (!field.value || field.value.trim() === '') {
-      alert(field.message);
-      return; // إيقاف العملية فوراً
-    }
-  }
-  // 2. تحقق خاص بملخص المشروع (Abstract): يجب ألا يقل عن 20 حرفاً
-  if (!projectDesc || projectDesc.trim().length < 20) {
-    alert("يجب أن يحتوي ملخص المشروع على 20 حرفاً على الأقل ليكون مفهوماً!");
-    return;
-  }
-  if (pdfFile && !validateFileExtension(pdfFile, ['.pdf'])) {
-    alert("❌ خطأ: ملف التوثيق يجب أن يكون بصيغة PDF فقط!");
-    return;
-  }
-
-  // 2. التحقق من امتداد ملف الـ ZIP
-  if (zipFile && !validateFileExtension(zipFile, ['.zip', '.rar', '.7z'])) {
-    alert("❌ خطأ: ملف السورس كود يجب أن يكون مضغوطاً (ZIP, RAR, 7Z)!");
-    return;
-  }
-
-  // 3. التحقق من وجود ملف PDF للمشاريع الجديدة
-  if (!editingId && !pdfFile) {
-    return alert('الرجاء اختيار ملف التوثيق الـ PDF للمشروع الجديد!');
-  }
-
-
-  setIsUploading(true);
-  setStatusMsg(editingId ? '🔄 جاري تحديث بيانات المشروع...' : '🧠 جاري أرشفة ورفع المشروع الجديد...');
-
-  try {
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(7);
-
-    let finalPdfUrl = existingPdfUrl;
-    let finalZipUrl = existingZipUrl;
-
-    // 4. رفع PDF جديد إذا اختار المستخدم ملفاً
-    if (pdfFile) {
-      setStatusMsg('📄 جاري رفع وثيقة الـ PDF الجديد...');
-      const pdfPath = `projects/pdf/${timestamp}_${randomStr}.pdf`;
-      const { error: pdfErr } = await supabase.storage
-        .from('university-files')
-        .upload(pdfPath, pdfFile);
-
-      if (pdfErr) throw pdfErr;
-
-      const { data: { publicUrl: pUrl } } = supabase.storage
-        .from('university-files')
-        .getPublicUrl(pdfPath);
-      finalPdfUrl = pUrl;
+    for (const field of requiredFields) {
+      if (!field.value || field.value.trim() === '') {
+        alert(field.message);
+        return;
+      }
     }
 
-    // 5. رفع ZIP جديد إذا اختار المستخدم ملفاً
-    if (zipFile) {
-      setStatusMsg('📦 جاري رفع حزمة السورس كود الـ ZIP الجديدة...');
-      const zipPath = `projects/source_code/${timestamp}_${randomStr}.zip`;
-      const { error: zipErr } = await supabase.storage
-        .from('university-files')
-        .upload(zipPath, zipFile);
-
-      if (zipErr) throw zipErr; // أضفت throw هنا للتأكد من التقاط الخطأ في catch
-
-      const { data: { publicUrl: zUrl } } = supabase.storage
-        .from('university-files')
-        .getPublicUrl(zipPath);
-      finalZipUrl = zUrl;
+    if (!projectDesc || projectDesc.trim().length < 20) {
+      alert(t('alertAbstractLength'));
+      return;
+    }
+    if (pdfFile && !validateFileExtension(pdfFile, ['.pdf'])) {
+      alert(t('alertPdfOnly'));
+      return;
+    }
+    if (zipFile && !validateFileExtension(zipFile, ['.zip', '.rar', '.7z'])) {
+      alert(t('alertZipOnly'));
+      return;
+    }
+    if (!editingId && !pdfFile) {
+      return alert(t('alertPdfRequired'));
     }
 
-    // 6. تجهيز البيانات للإرسال (Payload)
-    const payload = {
-      title: projectTitle,
-      abstract: projectDesc,
-      dep_id: selectedDeptId,
-      student_names: studentsNames,
-      supervisor_name: supervisor,
-      file_url: finalPdfUrl,
-      zip_file_url: finalZipUrl,
-      year: graduationYear,
-      is_visible: isVisible
-    };
+    setIsUploading(true);
+    setStatusMsg(editingId ? t('statusUpdating') : t('statusArchiving'));
 
-    if (editingId) {
-      // تحديث سجل قديم
-      const { error: updateErr } = await supabase
-        .from('graduation_projects')
-        .update(payload)
-        .eq('id', editingId);
+    try {
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(7);
 
-      if (updateErr) throw updateErr;
-      alert('🎉 تم تحديث بيانات المشروع والأرشيف بنجاح!');
-    } else {
-      // إدراج سجل جديد
-      const { error: insertErr } = await supabase
-        .from('graduation_projects')
-        .insert(payload);
+      let finalPdfUrl = existingPdfUrl;
+      let finalZipUrl = existingZipUrl;
 
-      if (insertErr) throw insertErr;
-      alert('🎉 تم أرشفة ونشر مشروع التخرج بنجاح!');
+      if (pdfFile) {
+        setStatusMsg(t('statusUploadingPdf'));
+        const pdfPath = `projects/pdf/${timestamp}_${randomStr}.pdf`;
+        const { error: pdfErr } = await supabase.storage
+          .from('university-files')
+          .upload(pdfPath, pdfFile);
+
+        if (pdfErr) throw pdfErr;
+
+        const { data: { publicUrl: pUrl } } = supabase.storage
+          .from('university-files')
+          .getPublicUrl(pdfPath);
+        finalPdfUrl = pUrl;
+      }
+
+      if (zipFile) {
+        setStatusMsg(t('statusUploadingZip'));
+        const zipPath = `projects/source_code/${timestamp}_${randomStr}.zip`;
+        const { error: zipErr } = await supabase.storage
+          .from('university-files')
+          .upload(zipPath, zipFile);
+
+        if (zipErr) throw zipErr;
+
+        const { data: { publicUrl: zUrl } } = supabase.storage
+          .from('university-files')
+          .getPublicUrl(zipPath);
+        finalZipUrl = zUrl;
+      }
+
+      const payload = {
+        title: projectTitle,
+        abstract: projectDesc,
+        dep_id: selectedDeptId,
+        student_names: studentsNames,
+        supervisor_name: supervisor,
+        file_url: finalPdfUrl,
+        zip_file_url: finalZipUrl,
+        year: graduationYear,
+        is_visible: isVisible
+      };
+
+      if (editingId) {
+        const { error: updateErr } = await supabase
+          .from('graduation_projects')
+          .update(payload)
+          .eq('id', editingId);
+
+        if (updateErr) throw updateErr;
+        alert(t('alertUpdateSuccess'));
+      } else {
+        const { error: insertErr } = await supabase
+          .from('graduation_projects')
+          .insert(payload);
+
+        if (insertErr) throw insertErr;
+        alert(t('alertArchiveSuccess'));
+      }
+
+      handleCancelEdit();
+      fetchProjectsList();
+    } catch (err: any) {
+      alert(t('alertOperationFailed') + " " + err.message);
+    } finally {
+      setIsUploading(false);
+      setStatusMsg('');
     }
+  };
 
-    handleCancelEdit();
-    fetchProjectsList();
-  } catch (err: any) {
-    alert('❌ فشلت العملية: ' + err.message);
-  } finally {
-    setIsUploading(false);
-    setStatusMsg('');
-  }
-};
-
-  // 🗑️ الحذف النهائي
   const handleDeleteProject = async (id: number) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المشروع من الأرشيف نهائياً؟')) return;
+    if (!confirm(t('confirmDelete'))) return;
 
     setProjectsList(prev => prev.filter(item => item.id !== id));
     const { error } = await supabase.from('graduation_projects').delete().eq('id', id);
 
     if (error) {
-      alert('❌ فشلت عملية الحذف من السيرفر');
+      alert(t('alertDeleteFailed'));
       fetchProjectsList();
     }
   };
 
-  // 👁️ التبديل الفوري لحالة العرض
   const handleToggleVisibility = async (id: number, currentStatus: boolean) => {
     const nextStatus = !currentStatus;
     setProjectsList(prev => prev.map(item => item.id === id ? { ...item, is_visible: nextStatus } : item));
-
     await supabase.from('graduation_projects').update({ is_visible: nextStatus }).eq('id', id);
   };
 
-  // تصفية نتائج الأرشيف بحسب شريط البحث
   const filteredArchive = projectsList.filter((item) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -292,10 +293,10 @@ export default function ProjectsManager() {
     );
   });
 
- return (
-    <section className="bg-[#edf2ee] border border-[#d2ded6] rounded-[2.5rem] p-6 md:p-8 shadow-xl max-w-4xl mx-auto dir-rtl text-right relative font-sans">
+  return (
+    <section className="bg-[#edf2ee] border border-[#d2ded6] rounded-[2.5rem] p-6 md:p-8 shadow-xl max-w-4xl mx-auto rtl:text-right ltr:text-left relative font-sans">
       
-      {/* 🏛 الشريط العلوي المطور + زر فتح الأرشيف المباشر */}
+      {/* 🏛 الشريط العلوي المطور + زر فتح الأرشيف (يظهر للأدمن فقط) */}
       <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#d8e3dd] flex-wrap gap-3">
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-2xl bg-[#00bc7e]/15 border border-[#00bc7e]/30 flex items-center justify-center text-[#059669]">
@@ -303,24 +304,26 @@ export default function ProjectsManager() {
           </div>
           <div>
             <h3 className="text-base font-black text-[#062c35] flex items-center gap-2">
-              {editingId ? "تعديل بيانات مشروع التخرج المأرشف" : "أرشفة مشاريع التخرج الهندسية"}
+              {editingId ? t('editArchivedProject') : t('archiveEngineeringProjects')}
               {editingId && <span className="text-[10px] bg-amber-500/15 text-amber-800 border border-amber-500/30 px-2 py-0.5 rounded-md font-mono font-bold">MODE_EDIT #{editingId}</span>}
             </h3>
             <p className="text-xs text-slate-500 font-bold mt-0.5">
-              رفع وتوثيق المشاريع والسورس كود وإدارتها في المكتبة الرقمية
+              {t('headerDescription')}
             </p>
           </div>
         </div>
 
         {/* 📦 أيقونة فتح الأرشيف المباشر */}
-        <button 
-          type="button"
-          onClick={() => setShowArchiveModal(true)} 
-          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#00bc7e]/15 hover:bg-[#00bc7e]/25 border border-[#00bc7e]/30 text-[#059669] hover:text-[#062c35] font-black text-xs transition-all cursor-pointer shadow-sm"
-        >
-          <Archive className="w-4 h-4 text-[#059669]" />
-          <span>فتح الأرشيف والمراجع ({projectsList.length})</span>
-        </button>
+        {isAdmin && (
+          <button 
+            type="button"
+            onClick={() => setShowArchiveModal(true)} 
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#00bc7e]/15 hover:bg-[#00bc7e]/25 border border-[#00bc7e]/30 text-[#059669] hover:text-[#062c35] font-black text-xs transition-all cursor-pointer shadow-sm"
+          >
+            <Archive className="w-4 h-4 text-[#059669]" />
+            <span>{t('openArchiveBtn')} ({projectsList.length})</span>
+          </button>
+        )}
       </div>
 
       {/* 📄 نموذج الرفع أو التعديل */}
@@ -328,8 +331,8 @@ export default function ProjectsManager() {
         
         {editingId && (
           <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-2xl flex items-center justify-between text-xs font-bold text-amber-900">
-            <span>أنت الآن في وضع التعديل للمشروع المأرشف. يمكنك تغيير البيانات أو إعادة اختيار الملفات.</span>
-            <button type="button" onClick={handleCancelEdit} className="text-xs text-slate-600 hover:text-slate-900 underline cursor-pointer">إلغاء التعديل</button>
+            <span>{t('editModeNotice')}</span>
+            <button type="button" onClick={handleCancelEdit} className="text-xs text-slate-600 hover:text-slate-900 underline cursor-pointer">{t('cancelEditBtn')}</button>
           </div>
         )}
 
@@ -337,11 +340,11 @@ export default function ProjectsManager() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-[11px] font-bold text-slate-700 block mb-1">
-              عنوان مشروع التخرج:
+              {t('projectTitleLabel')}
             </label>
             <input 
               type="text" 
-              placeholder="مثال: منصة إدارة الخدمات الذكية..." 
+              placeholder={t('projectTitlePlaceholder')} 
               className="w-full p-3.5 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs text-[#062c35] focus:outline-none focus:border-[#059669]"
               value={projectTitle} 
               onChange={(e) => setProjectTitle(e.target.value)} 
@@ -350,7 +353,7 @@ export default function ProjectsManager() {
 
           <div>
             <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-              <Building2 className="w-3.5 h-3.5 text-[#059669]" /> الكلية والتخصص:
+              <Building2 className="w-3.5 h-3.5 text-[#059669]" /> {t('collegeAndMajorLabel')}
             </label>
             <select 
               className="w-full p-3.5 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs font-bold text-[#062c35] focus:outline-none focus:border-[#059669] cursor-pointer"
@@ -374,11 +377,11 @@ export default function ProjectsManager() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-              <Users className="w-3.5 h-3.5 text-[#059669]" /> أسماء الطلاب / الفريق:
+              <Users className="w-3.5 h-3.5 text-[#059669]" /> {t('studentNamesLabel')}
             </label>
             <input 
               type="text" 
-              placeholder="أسماء الطلاب مفصولة بفاصلة..." 
+              placeholder={t('studentNamesPlaceholder')} 
               className="w-full p-3 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs text-[#062c35] focus:outline-none focus:border-[#059669]"
               value={studentsNames} 
               onChange={(e) => setStudentsNames(e.target.value)} 
@@ -387,11 +390,11 @@ export default function ProjectsManager() {
 
           <div>
             <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-              <User className="w-3.5 h-3.5 text-[#059669]" /> أستاذ / مشرف المشروع:
+              <User className="w-3.5 h-3.5 text-[#059669]" /> {t('supervisorLabel')}
             </label>
             <input 
               type="text" 
-              placeholder="أستاذ/مشرف المشروع..." 
+              placeholder={t('supervisorPlaceholder')} 
               className="w-full p-3 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs text-[#062c35] focus:outline-none focus:border-[#059669]"
               value={supervisor} 
               onChange={(e) => setSupervisor(e.target.value)} 
@@ -400,7 +403,7 @@ export default function ProjectsManager() {
 
           <div>
             <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-              <Calendar className="w-3.5 h-3.5 text-[#059669]" /> سنة التخرج / المناقشة:
+              <Calendar className="w-3.5 h-3.5 text-[#059669]" /> {t('graduationYearLabel')}
             </label>
             <input 
               type="text" 
@@ -415,11 +418,11 @@ export default function ProjectsManager() {
         {/* الملخص */}
         <div>
           <label className="text-[11px] font-bold text-slate-700 block mb-1">
-            ملخص ومخرجات المشروع (Abstract):
+            {t('abstractLabel')}
           </label>
           <textarea 
             rows={3} 
-            placeholder="ملخص موجز للنظرية والأهداف العلمية..." 
+            placeholder={t('abstractPlaceholder')} 
             className="w-full p-3 rounded-2xl bg-[#f4f7f5] border border-[#cde0d5] text-xs text-[#062c35] focus:outline-none focus:border-[#059669] resize-none"
             value={projectDesc} 
             onChange={(e) => setProjectDesc(e.target.value)} 
@@ -430,7 +433,7 @@ export default function ProjectsManager() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-              <FileText className="w-3.5 h-3.5 text-amber-600" /> وثيقة التوثيق (PDF):
+              <FileText className="w-3.5 h-3.5 text-amber-600" /> {t('pdfFileLabel')}
             </label>
             <input 
               type="file" 
@@ -439,13 +442,13 @@ export default function ProjectsManager() {
               className="w-full text-xs text-slate-600 file:ml-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#059669] file:text-white cursor-pointer bg-[#f4f7f5] p-2 rounded-2xl border border-[#cde0d5]" 
             />
             {existingPdfUrl && !pdfFile && (
-              <span className="text-[10px] text-[#059669] font-mono font-bold mt-1 block">✓ يوجد ملف PDF مأرشف سابقاً (سيتم الاحتفاظ به إن لم ترفع جديداً)</span>
+              <span className="text-[10px] text-[#059669] font-mono font-bold mt-1 block">{t('existingPdfNotice')}</span>
             )}
           </div>
 
           <div>
             <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
-              <FileArchive className="w-3.5 h-3.5 text-sky-600" /> حزمة السورس كود (ZIP / RAR):
+              <FileArchive className="w-3.5 h-3.5 text-sky-600" /> {t('zipFileLabel')}
             </label>
             <input 
               type="file" 
@@ -454,7 +457,7 @@ export default function ProjectsManager() {
               className="w-full text-xs text-slate-600 file:ml-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-sky-700 file:text-white cursor-pointer bg-[#f4f7f5] p-2 rounded-2xl border border-[#cde0d5]" 
             />
             {existingZipUrl && !zipFile && (
-              <span className="text-[10px] text-sky-700 font-mono font-bold mt-1 block">✓ يوجد ملف ZIP مأرشف سابقاً</span>
+              <span className="text-[10px] text-sky-700 font-mono font-bold mt-1 block">{t('existingZipNotice')}</span>
             )}
           </div>
         </div>
@@ -463,7 +466,7 @@ export default function ProjectsManager() {
         <div className="p-3.5 rounded-2xl bg-white border border-[#d8e3dd] flex items-center justify-between shadow-xs">
           <span className="text-xs font-bold text-[#062c35] flex items-center gap-1.5">
             {isVisible ? <Eye className="w-4 h-4 text-[#059669]" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
-            إتاحة المشروع للعرض المباشر في المكتبة الرقمية؟
+            {t('makeVisibleLabel')}
           </span>
           <label className="relative inline-flex items-center cursor-pointer">
             <input 
@@ -472,7 +475,7 @@ export default function ProjectsManager() {
               checked={isVisible} 
               onChange={(e) => setIsVisible(e.target.checked)}
             />
-            <div className="w-11 h-6 bg-slate-300 rounded-full peer peer-checked:after:-translate-x-full peer-checked:bg-[#059669] after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+            <div className="w-11 h-6 bg-slate-300 rounded-full peer peer-checked:rtl:after:-translate-x-full peer-checked:ltr:after:translate-x-full peer-checked:bg-[#059669] after:content-[''] after:absolute after:top-[2px] after:rtl:right-[2px] after:ltr:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
           </label>
         </div>
 
@@ -489,7 +492,7 @@ export default function ProjectsManager() {
             className="flex-1 py-4 bg-gradient-to-r from-[#059669] to-[#00bc7e] hover:from-[#047857] hover:to-[#059669] text-white font-black rounded-2xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-md"
           >
             {isUploading ? <Loader2 className="w-4 h-4 animate-spin"/> : <UploadCloud className="w-4 h-4"/>}
-            <span>{editingId ? "تحديث المرجع المأرشف" : "أرشفة ونشر مشروع التخرج مع ملف الـ ZIP"}</span>
+            <span>{editingId ? t('updateArchivedRefBtn') : t('archiveAndPublishBtn')}</span>
           </button>
 
           {editingId && (
@@ -498,16 +501,16 @@ export default function ProjectsManager() {
               onClick={handleCancelEdit} 
               className="px-5 py-4 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-2xl text-xs transition-all cursor-pointer"
             >
-              إلغاء
+              {t('cancelBtn')}
             </button>
           )}
         </div>
 
       </form>
 
-      {/* 📦 النافذة المنبثقة الشفافة للأرشيف والشاملة لمربع البحث وأيقونة التعديل */}
-      {showArchiveModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 dir-rtl">
+      {/* 📦 نافذة الأرشيف */}
+      {showArchiveModal && isAdmin && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 rtl:dir-rtl ltr:dir-ltr">
           <div className="bg-white border border-[#d8e3dd] rounded-3xl p-6 w-full max-w-3xl max-h-[85vh] flex flex-col justify-between shadow-2xl relative animate-in fade-in zoom-in duration-200">
             
             {/* رأس نافذة الأرشيف */}
@@ -515,7 +518,7 @@ export default function ProjectsManager() {
               <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <Archive className="w-5 h-5 text-[#059669]" />
-                  <h4 className="text-sm font-black text-[#062c35]">المستودع الرقمي للمشاريع المأرشفة ({projectsList.length})</h4>
+                  <h4 className="text-sm font-black text-[#062c35]">{t('digitalRepositoryTitle')} ({projectsList.length})</h4>
                 </div>
                 <button 
                   type="button" 
@@ -533,18 +536,18 @@ export default function ProjectsManager() {
                     type="text" 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="ابحث باسم المشروع، الطالب، المشرف أو السنة..." 
+                    placeholder={t('searchPlaceholder')} 
                     className="w-full bg-transparent text-xs text-[#062c35] placeholder-slate-400 focus:outline-none"
                   />
-                  <Search className="w-4 h-4 text-slate-400 mr-2" />
+                  <Search className="w-4 h-4 text-slate-400 mx-2" />
                 </div>
               </div>
             </div>
 
-            {/* قائمة المراجع مع أزرار التعديل والإخفاء والحذف */}
-            <div className="flex-grow overflow-y-auto space-y-2.5 my-2 pr-1">
+            {/* قائمة المراجع */}
+            <div className="flex-grow overflow-y-auto space-y-2.5 my-2 px-1">
               {loadingList ? (
-                <p className="text-center text-xs text-slate-500 animate-pulse py-8">جاري استدعاء السجلات المأرشفة...</p>
+                <p className="text-center text-xs text-slate-500 animate-pulse py-8">{t('loadingArchive')}</p>
               ) : filteredArchive.length > 0 ? (
                 filteredArchive.map((proj) => (
                   <div 
@@ -554,22 +557,20 @@ export default function ProjectsManager() {
                     <div className="overflow-hidden">
                       <h5 className="text-xs font-black text-[#062c35] truncate">{proj.title}</h5>
                       <p className="text-[10px] text-slate-500 mt-0.5 truncate">
-                        الفريق: <strong className="text-slate-700">{proj.student_names || proj.students_names || 'غير محدد'}</strong> | المشرف: {proj.supervisor_name || proj.supervisor_names || 'غير محدد'} | السنة: {proj.year || '2026'}
+                        {t('teamLabel')} <strong className="text-slate-700">{proj.student_names || proj.students_names || t('unspecified')}</strong> | {t('supervisorPrefix')} {proj.supervisor_name || proj.supervisor_names || t('unspecified')} | {t('yearPrefix')} {proj.year || '2026'}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                      {/* ✏️ أيقونة التعديل */}
                       <button
                         type="button"
                         onClick={() => handleStartEdit(proj)}
                         className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-700 hover:bg-sky-500/20 transition-all cursor-pointer"
-                        title="تعديل بيانات المرجع"
+                        title={t('editRefTooltip')}
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
 
-                      {/* 👁️ أيقونة الإخفاء/الإظهار */}
                       <button
                         type="button"
                         onClick={() => handleToggleVisibility(proj.id, proj.is_visible)}
@@ -578,17 +579,16 @@ export default function ProjectsManager() {
                             ? 'bg-emerald-500/10 border-emerald-500/30 text-[#059669]' 
                             : 'bg-slate-100 border-slate-300 text-slate-400'
                         }`}
-                        title={proj.is_visible ? "متاح للطلاب (اضغط للإخفاء)" : "مخفي عن الطلاب (اضغط للإظهار)"}
+                        title={proj.is_visible ? t('visibleTooltip') : t('hiddenTooltip')}
                       >
                         {proj.is_visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                       </button>
 
-                      {/* 🗑️ أيقونة الحذف */}
                       <button
                         type="button"
                         onClick={() => handleDeleteProject(proj.id)}
                         className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 hover:bg-rose-500/20 transition-all cursor-pointer"
-                        title="حذف المرجع نهائياً"
+                        title={t('deleteRefTooltip')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -596,7 +596,7 @@ export default function ProjectsManager() {
                   </div>
                 ))
               ) : (
-                <p className="text-center text-xs text-slate-500 py-8 font-bold">لا توجد مراجع مأرشفة مطابقة للبحث.</p>
+                <p className="text-center text-xs text-slate-500 py-8 font-bold">{t('noArchiveFound')}</p>
               )}
             </div>
 
@@ -607,14 +607,14 @@ export default function ProjectsManager() {
                 onClick={fetchProjectsList} 
                 className="flex items-center gap-1 text-[#059669] font-bold hover:underline transition-colors cursor-pointer"
               >
-                <RefreshCw className="w-3.5 h-3.5" /> إعادة تحديث السجلات
+                <RefreshCw className="w-3.5 h-3.5" /> {t('refreshRecordsBtn')}
               </button>
               <button 
                 type="button" 
                 onClick={() => setShowArchiveModal(false)}
                 className="px-4 py-2 bg-[#062c35] hover:bg-[#093d49] text-white rounded-xl font-bold cursor-pointer transition-all"
               >
-                إغلاق النافذة
+                {t('closeModalBtn')}
               </button>
             </div>
 

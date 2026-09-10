@@ -3,18 +3,22 @@
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl'; // 👈 استدعاء خطاف الترجمة
+import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
+import { ShieldCheck, UserCog } from 'lucide-react';
 
 function AdminLoginContent() {
   const router = useRouter();
-  const t = useTranslations('AdminLogin'); // 👈 ربط قسم تسجيل الدخول
+  const t = useTranslations('AdminLogin');
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+
+  // 👈 إضافة حالة نوع تسجيل الدخول (رئيسي أو فرعي)
+  const [loginType, setLoginType] = useState<'master' | 'subadmin'>('master');
 
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [isUsernameFocused, setIsUsernameFocused] = useState(false);
@@ -25,37 +29,61 @@ function AdminLoginContent() {
     setNotification(null);
 
     try {
-      // 📡 استعلام الأمان لمطابقة اسم المستخدم
-      const { data: user, error } = await supabase
-        .from('user_accounts')
-        .select('*')
-        .eq('username', username)
-        .single();
+      if (loginType === 'master') {
+        // 📡 التحقق من المشرف الرئيسي في جدول user_accounts
+        const { data: user, error } = await supabase
+          .from('user_accounts')
+          .select('*')
+          .eq('username', username)
+          .single();
 
-      if (error || !user) {
-        setNotification(t('errNotFound'));
-        setIsLoading(false);
-        return;
-      }
+        if (error || !user) {
+          setNotification(t('errNotFound'));
+          setIsLoading(false);
+          return;
+        }
 
-      // 🔐 التحقق الصارم من الرتبة (يجب أن يكون admin فقط)
-      if (user.role !== 'admin') {
-        setNotification(t('errForbidden'));
-        setIsLoading(false);
-        return;
-      }
+        if (user.role !== 'admin') {
+          setNotification(t('errForbidden'));
+          setIsLoading(false);
+          return;
+        }
 
-      // 🔑 مطابقة كلمة المرور
-      if (user.password_hash !== password) {
-        setNotification(t('errPassword'));
-        setIsLoading(false);
-        return;
+        if (user.password_hash !== password) {
+          setNotification(t('errPassword'));
+          setIsLoading(false);
+          return;
+        }
+
+        localStorage.setItem('admin_username', username);
+        localStorage.setItem('admin_type', 'master');
+
+      } else {
+        // 📡 التحقق من المشرف الفرعي في جدول subadmins الجديد
+        const { data: subAdmin, error } = await supabase
+          .from('subadmins')
+          .select('*')
+          .eq('username', username)
+          .single();
+
+        if (error || !subAdmin) {
+          setNotification('اسم المستخدم للمشرف الفرعي غير موجود');
+          setIsLoading(false);
+          return;
+        }
+
+        if (subAdmin.password !== password) {
+          setNotification(t('errPassword'));
+          setIsLoading(false);
+          return;
+        }
+
+        localStorage.setItem('admin_username', username);
+        localStorage.setItem('admin_type', 'subadmin');
       }
 
       // 🎯 النجاح
       setNotification(t('successRedirect'));
-      localStorage.setItem('admin_username', username);
-      
       setTimeout(() => router.push('/admin/dashboard'), 1200);
 
     } catch (err) {
@@ -67,12 +95,12 @@ function AdminLoginContent() {
   return (
     <div className="bg-[#04181e] text-slate-100 min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-6 font-sans">
       
-      {/* 🌌 تأثير الخلفية التفاعلية بهوية الزيتي والأخضر الزمردي */}
+      {/* 🌌 تأثيرات الخلفية */}
       <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(0,188,126,0.06)_0%,transparent_70%)]" />
       <div className="absolute w-[500px] h-[500px] rounded-full bg-[#059669]/10 blur-[140px] top-[-10%] right-[-10%]" />
       <div className="absolute w-[500px] h-[500px] rounded-full bg-[#00bc7e]/10 blur-[140px] bottom-[-10%] left-[-10%]" />
 
-      {/* 🔔 نظام الإشعارات العائم المترجم */}
+      {/* 🔔 نظام الإشعارات */}
       {notification && (
         <div className="fixed top-6 max-w-[400px] w-full px-5 py-4 rounded-2xl border backdrop-blur-2xl z-50 shadow-2xl transition-all duration-500 flex items-center gap-3 bg-[#062c35]/90 border-[#00bc7e]/40 text-[#00bc7e]">
           <span className="w-2.5 h-2.5 rounded-full bg-[#00bc7e] animate-ping flex-shrink-0" />
@@ -86,7 +114,36 @@ function AdminLoginContent() {
       {/* 🏛️ صندوق تسجيل الدخول الرئيسي */}
       <div className="w-full max-w-[440px] bg-[#062c35]/70 backdrop-blur-2xl border border-[#00bc7e]/25 rounded-[2.5rem] p-8 shadow-[0_25px_60px_rgba(0,0,0,0.6)] relative z-10 transition-all duration-500 hover:border-[#00bc7e]/40">
         
-        {/* 🎓 قبعة ورأس التفاعل الذكي (بألوان الأخضر الزمردي) */}
+        {/* 🎛️ زر التبديل بين مشرف رئيسي ومشرف فرعي */}
+        <div className="grid grid-cols-2 gap-2 bg-[#041a21] p-1.5 rounded-2xl border border-[#0d4e5d] mb-6">
+          <button
+            type="button"
+            onClick={() => setLoginType('master')}
+            className={`py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              loginType === 'master' 
+                ? 'bg-gradient-to-r from-[#059669] to-[#00bc7e] text-slate-950 shadow-md' 
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>مشرف رئيسي</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setLoginType('subadmin')}
+            className={`py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              loginType === 'subadmin' 
+                ? 'bg-gradient-to-r from-[#059669] to-[#00bc7e] text-slate-950 shadow-md' 
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <UserCog className="w-4 h-4" />
+            <span>مشرف فرعي</span>
+          </button>
+        </div>
+
+        {/* 🎓 قبعة ورأس التفاعل الذكي */}
         <div className="w-full flex justify-center mb-6 select-none relative h-28">
           <svg className="w-28 h-28 transition-all duration-500" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M50 15L85 27L50 39L15 27L50 15Z" fill="#04161c" stroke="#00bc7e" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -123,10 +180,14 @@ function AdminLoginContent() {
 
         <div className="text-center mb-8 select-none">
           <div className="inline-block px-3 py-1 rounded-full bg-[#00bc7e]/15 border border-[#00bc7e]/30 text-[#00bc7e] text-[10px] font-mono font-black mb-2">
-            {t('badge')}
+            {loginType === 'master' ? t('badge') : 'SUB-ADMIN PORTAL'}
           </div>
-          <h3 className="text-xl font-black text-white tracking-tight">{t('title')}</h3>
-          <p className="text-xs text-slate-300 font-medium mt-1">{t('subtitle')}</p>
+          <h3 className="text-xl font-black text-white tracking-tight">
+            {loginType === 'master' ? t('title') : 'تسجيل دخول المشرف الفرعي'}
+          </h3>
+          <p className="text-xs text-slate-300 font-medium mt-1">
+            {loginType === 'master' ? t('subtitle') : 'تسجيل الدخول بالصلاحيات المخصصة لك'}
+          </p>
         </div>
 
         <form onSubmit={handleAdminLogin} className="space-y-5">
@@ -177,13 +238,13 @@ function AdminLoginContent() {
           <button 
             type="submit"
             disabled={isLoading}
-            className={`w-full text-white font-black py-3.5 px-4 rounded-2xl text-sm transition-all duration-300 active:scale-[0.98] mt-2 shadow-lg relative overflow-hidden flex items-center justify-center gap-2 cursor-pointer ${
+            className={`w-full text-slate-950 font-black py-3.5 px-4 rounded-2xl text-sm transition-all duration-300 active:scale-[0.98] mt-2 shadow-lg relative overflow-hidden flex items-center justify-center gap-2 cursor-pointer ${
               isLoading ? "opacity-80 cursor-wait" : ""
-            } bg-gradient-to-r from-[#059669] to-[#00bc7e] hover:from-[#047857] hover:to-[#059669] shadow-[#00bc7e]/20`}
+            } bg-gradient-to-r from-[#059669] to-[#00bc7e] hover:opacity-90 shadow-[#00bc7e]/20`}
           >
             {isLoading ? (
               <>
-                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-4 w-4 text-slate-950" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>

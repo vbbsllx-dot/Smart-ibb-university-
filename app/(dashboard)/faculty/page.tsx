@@ -12,29 +12,32 @@ import {
   Clock, 
   LogOut, 
   Plus, 
-  User,
-  X,
-  Camera,
-  PlayCircle,
-  BookOpen,
-  ExternalLink,
-  GraduationCap,
-  FileCheck2,
-  Search,
-  DownloadCloud,
-  FileSpreadsheet,
-  FileText,
-  Loader2,
-  CheckCircle2,
-  Calendar,
-  ClipboardList,
-  Send,
-  Building2,
-  Check,
+  User, 
+  X, 
+  Camera, 
+  PlayCircle, 
+  BookOpen, 
+  ExternalLink, 
+  GraduationCap, 
+  FileCheck2, 
+  Search, 
+  DownloadCloud, 
+  FileSpreadsheet, 
+  FileText, 
+  Loader2, 
+  CheckCircle2, 
+  Calendar, 
+  ClipboardList, 
+  Send, 
+  Building2, 
+  Check, 
+  FolderGit2 
 } from 'lucide-react';
 
 import ResourceCarousel from './ResourceCarousel';
 import StudentRosterTable from './StudentRosterTable';
+import ProjectsManager from '@/app/components/admin/ProjectsManager';
+import ThesesManager from '@/app/components/admin/ThesesManager';
 
 const departmentNamesMap: { [key: number]: string } = {
   1: 'هندسة الحاسبات والتحكم', 2: 'الهندسة المدنية', 3: 'الهندسة المعمارية', 4: 'هندسة الاتصالات',
@@ -101,7 +104,7 @@ export default function AdvancedFacultyDashboard() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
-  
+
   const [instructorInfo, setInstructorInfo] = useState<any>({ 
     id: "", 
     name: t('fetchingName'), 
@@ -109,7 +112,7 @@ export default function AdvancedFacultyDashboard() {
     avatar_url: null 
   });
   const [myResources, setMyResources] = useState<any[]>([]);
-  
+
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [studentsRoster, setStudentsRoster] = useState<any[]>([]);
 
@@ -122,6 +125,14 @@ export default function AdvancedFacultyDashboard() {
   const [customColumns, setCustomColumns] = useState<string[]>([]);
   const [cellData, setCellData] = useState<{[studentId: string]: {[colName: string]: string}}>({});
 
+  // 📋 حالات كشف الحضور والغياب المعزولة والمحفوظة
+  const [attendanceSessions, setAttendanceSessions] = useState<string[]>([
+    'المحاضرة 1', 
+    'المحاضرة 2', 
+    'المحاضرة 3'
+  ]);
+  const [attendanceData, setAttendanceData] = useState<{[studentId: string]: {[session: string]: string}}>({});
+
   // 📦 حالات أداة استدعاء كشوفات المقيدين
   const [showRosterModal, setShowRosterModal] = useState(false);
   const [searchDeptId, setSearchDeptId] = useState<number>(1);
@@ -130,11 +141,130 @@ export default function AdvancedFacultyDashboard() {
   const [fetchedRosters, setFetchedRosters] = useState<any[]>([]);
   const [isSearchingRosters, setIsSearchingRosters] = useState(false);
 
+  // ⚡ حالة شريط الكشوفات وإدارة الجلسة
+  const [recentRosters, setRecentRosters] = useState<any[]>([]);
+  const [isStorageReady, setIsStorageReady] = useState(false);
+
+  // 🔄 1. استرجاع الكشف النشط بالكامل (درجات + حضور) عند التحديث
+  useEffect(() => {
+    try {
+      const savedRecents = localStorage.getItem('recent_faculty_rosters');
+      if (savedRecents) {
+        setRecentRosters(JSON.parse(savedRecents));
+      }
+
+      const activeSession = localStorage.getItem('active_faculty_roster_session');
+      if (activeSession) {
+        const session = JSON.parse(activeSession);
+        if (session.studentsRoster && session.studentsRoster.length > 0) {
+          setStudentsRoster(session.studentsRoster || []);
+          setSelectedResource(session.selectedResource || null);
+          setActiveRosterHeader(session.activeRosterHeader || '');
+          setManualSubjectName(session.manualSubjectName || '');
+          setActiveSemester(session.activeSemester || 1);
+          setCustomColumns(session.customColumns || []);
+          setCellData(session.cellData || {});
+          if (session.attendanceSessions) setAttendanceSessions(session.attendanceSessions);
+          if (session.attendanceData) setAttendanceData(session.attendanceData);
+        }
+      }
+    } catch (err) {
+      console.error("خطأ قراءة الذاكرة:", err);
+    } finally {
+      setIsStorageReady(true);
+    }
+  }, []);
+
+  // 💾 2. دالة حفظ بيانات الجلسة الحالية
+  const saveCurrentRosterSession = (data: any) => {
+    try {
+      localStorage.setItem('active_faculty_roster_session', JSON.stringify(data));
+    } catch (e) {
+      console.error("فشل الحفظ في الذاكرة:", e);
+    }
+  };
+
+  // ⚡ 3. مزامنة فورية تلقائية: تحفظ أي تعديل في الدرجات أو الحضور لحظياً
+  useEffect(() => {
+    if (!isStorageReady) return;
+
+    if (studentsRoster.length > 0 || customColumns.length > 0) {
+      saveCurrentRosterSession({
+        studentsRoster,
+        selectedResource,
+        activeRosterHeader,
+        manualSubjectName,
+        activeSemester,
+        customColumns,
+        cellData,
+        attendanceSessions,
+        attendanceData
+      });
+    }
+  }, [customColumns, cellData, attendanceSessions, attendanceData, manualSubjectName, activeRosterHeader, activeSemester, selectedResource, studentsRoster, isStorageReady]);
+
+  // 📌 4. دالة إضافة كشف لشريط الكشوفات الأخيرة
+  const pushToRecentRosters = (rosterMeta: any) => {
+    setRecentRosters(prev => {
+      const filtered = prev.filter(r => r.keyId !== rosterMeta.keyId);
+      const updated = [rosterMeta, ...filtered].slice(0, 5);
+      localStorage.setItem('recent_faculty_rosters', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // 🧹 5. إغلاق الكشف الحالي وبدء كشف جديد وتصفير الحضور
+  const handleClearCurrentRoster = () => {
+    if (confirm("هل تريد إغلاق الكشف الحالي من الشاشة؟")) {
+      setStudentsRoster([]);
+      setSelectedResource(null);
+      setActiveRosterHeader('');
+      setManualSubjectName('');
+      setCustomColumns([]);
+      setCellData({});
+      setAttendanceData({});
+      setAttendanceSessions(['المحاضرة 1', 'المحاضرة 2', 'المحاضرة 3']);
+      localStorage.removeItem('active_faculty_roster_session');
+    }
+  };
+
+  // 🗑️ حذف كشف محدد من شريط الوصول السريع
+  const handleRemoveSingleRecent = (keyId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRecentRosters(prev => {
+      const updated = prev.filter(r => r.keyId !== keyId);
+      localStorage.setItem('recent_faculty_rosters', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // 📝 حالات لوحة التكاليف والواجبات
   const [showAssignmentsModal, setShowAssignmentsModal] = useState(false);
   const [assignmentsList, setAssignmentsList] = useState<any[]>([]);
   const [newAssignTitle, setNewAssignTitle] = useState('');
   const [newAssignScore, setNewAssignScore] = useState(10);
+
+  // حالات التحكم بالنوافذ الجديدة
+  const [showProjectsModal, setShowProjectsModal] = useState(false);
+  const [showThesesModal, setShowThesesModal] = useState(false);
+  const [showSubmissionsModal, setShowSubmissionsModal] = useState(false);
+
+  // حالات استلام الواجبات
+  const [selectedAssignmentForReview, setSelectedAssignmentForReview] = useState<any>(null);
+  const [studentSubmissions, setStudentSubmissions] = useState<any[]>([]);
+  const [totalSubmissionsCount, setTotalSubmissionsCount] = useState<number>(0);
+  const [unreadSubmissionsCount, setUnreadSubmissionsCount] = useState<number>(0);
+
+  // حالات إضافة واجب متقدم
+  const [newAssignDeptId, setNewAssignDeptId] = useState<number>(1);
+  const [newAssignLevelId, setNewAssignLevelId] = useState<number>(1);
+  const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+  const [newAssignDueDate, setNewAssignDueDate] = useState(getCurrentDateTimeLocal());
+  const [newAssignDescription, setNewAssignDescription] = useState('');
 
   // 🎬 حالات شاشة العرض السينمائية
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -184,6 +314,17 @@ export default function AdvancedFacultyDashboard() {
 
       setAssignmentsList(assignData || []);
 
+      const { count: submissionsCount } = await supabase
+        .from('assignment_submissions')
+        .select('*', { count: 'exact', head: true });
+
+      const totalCount = submissionsCount || 0;
+      setTotalSubmissionsCount(totalCount);
+
+      const lastSeenCount = parseInt(localStorage.getItem('last_seen_submissions_count') || '0', 10);
+      const unread = Math.max(0, totalCount - lastSeenCount);
+      setUnreadSubmissionsCount(unread);
+      
     } catch (err) {
       console.error(err);
     } finally {
@@ -202,12 +343,11 @@ export default function AdvancedFacultyDashboard() {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsUpdatingAvatar(true);
     try {
       const timestamp = Date.now();
       const fileExt = file.name.split('.').pop();
-      const filePath = `avatars/${instructorInfo.id}_${timestamp}.${fileExt}`;
+      const filePath = `doctor's images/${instructorInfo.id}_${timestamp}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('university-files')
@@ -219,15 +359,24 @@ export default function AdvancedFacultyDashboard() {
         .from('university-files')
         .getPublicUrl(filePath);
 
-      await supabase
-        .from('instructors')
-        .update({ avatar_url: publicUrl })
-        .eq('id', instructorInfo.id);
+      const cleanInstructorId = !isNaN(Number(instructorInfo.id)) ? Number(instructorInfo.id) : instructorInfo.id;
 
-      setInstructorInfo((prev: any) => ({ ...prev, avatar_url: publicUrl }));
+      const { data: updateData, error: dbError } = await supabase
+        .from('instructors')
+        .update({ avatar_url: publicUrl, image_url: publicUrl })
+        .eq('id', cleanInstructorId)
+        .select(); 
+
+      if (dbError) throw dbError;
+
+      if (!updateData || updateData.length === 0) {
+        throw new Error(t('doctorRecordNotFound'));
+      }
+
+      setInstructorInfo((prev: any) => ({ ...prev, avatar_url: publicUrl, image_url: publicUrl }));
       alert(t('alertPhotoUpdated'));
     } catch (err: any) {
-      alert(t('alertPhotoFailed') + err.message);
+      alert(t('alertPhotoFailed') + " " + err.message);
     } finally {
       setIsUpdatingAvatar(false);
     }
@@ -235,9 +384,10 @@ export default function AdvancedFacultyDashboard() {
 
   const handleSelectResource = async (resource: any) => {
     setSelectedResource(resource);
-    if (studentsRoster.length > 0) return;
+    setActiveRosterHeader(resource.title || '');
+    setActiveSemester(resource.semester || 1);
     setCustomColumns(resource.custom_columns || []);
-    
+
     try {
       const targetDepartmentName = departmentNamesMap[resource.dep_id || resource.dept_id];
       const targetLevelBaseName = levelNamesMap[resource.level_id];
@@ -249,37 +399,58 @@ export default function AdvancedFacultyDashboard() {
           .eq('department', targetDepartmentName)
           .ilike('level', `${targetLevelBaseName}%`);
 
+        let parsed: any[] = [];
         if (currentStudents) {
-          const parsed = currentStudents.map((s: any) => ({
+          parsed = currentStudents.map((s: any) => ({
             ...s,
             student_id: String(s.student_id || s.academic_id || s.id || '').trim(),
             name: String(s.name || s.student_name || 'طالب غير معروف').trim(),
             status: s.status || 'منتظم'
           }));
           setStudentsRoster(parsed);
+        }
 
-          const { data: savedGrades } = await supabase
-            .from('resource_grades')
-            .select('*')
-            .eq('resource_id', resource.id);
+        // 1. جلب الدرجات
+        const { data: savedGrades } = await supabase
+          .from('resource_grades')
+          .select('*')
+          .eq('resource_id', resource.id);
 
-          if (savedGrades && savedGrades.length > 0) {
-            const formattedCells: any = {};
-            const extractedCols = new Set<string>(resource.custom_columns || []);
+        const formattedCells: any = {};
+        const extractedCols = new Set<string>(resource.custom_columns || []);
+        if (savedGrades && savedGrades.length > 0) {
+          savedGrades.forEach((row: any) => {
+            const studentKey = String(row.student_id).trim();
+            const colKey = String(row.column_name).trim();
+            if (!formattedCells[studentKey]) formattedCells[studentKey] = {};
+            formattedCells[studentKey][colKey] = String(row.grade_value || "").trim();
+            if (colKey) extractedCols.add(colKey);
+          });
+        }
+        setCustomColumns(Array.from(extractedCols));
+        setCellData(formattedCells);
 
-            savedGrades.forEach((row: any) => {
-              const studentKey = String(row.student_id).trim();
-              const colKey = String(row.column_name).trim();
+        // 2. جلب الحضور الخاص بهذه المادة حصراً
+        const { data: attData } = await supabase
+          .from('attendance_records')
+          .select('*')
+          .eq('resource_id', resource.id);
 
-              if (!formattedCells[studentKey]) formattedCells[studentKey] = {};
-              formattedCells[studentKey][colKey] = String(row.grade_value || "").trim();
-              
-              if (colKey) extractedCols.add(colKey);
-            });
-
-            setCustomColumns(Array.from(extractedCols));
-            setCellData(formattedCells);
-          }
+        if (attData && attData.length > 0) {
+          const formattedAtt: any = {};
+          const sessionsSet = new Set<string>();
+          attData.forEach((row) => {
+            const cleanStudentId = String(row.student_id).trim();
+            const cleanSession = String(row.session_name).trim();
+            if (!formattedAtt[cleanStudentId]) formattedAtt[cleanStudentId] = {};
+            formattedAtt[cleanStudentId][cleanSession] = row.status || 'حاضر';
+            sessionsSet.add(cleanSession);
+          });
+          setAttendanceData(formattedAtt);
+          setAttendanceSessions(Array.from(sessionsSet));
+        } else {
+          setAttendanceData({});
+          setAttendanceSessions(['المحاضرة 1', 'المحاضرة 2', 'المحاضرة 3']);
         }
       }
     } catch (err) {
@@ -288,31 +459,31 @@ export default function AdvancedFacultyDashboard() {
   };
 
   const handleSaveSignatureBlob = async (blob: Blob) => {
-  try {
-    const timestamp = Date.now();
-    const filePath = `signatures/${instructorInfo.id}_${timestamp}.png`;
+    try {
+      const timestamp = Date.now();
+      const filePath = `signatures/${instructorInfo.id}_${timestamp}.png`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('university-files')
-      .upload(filePath, blob, { contentType: 'image/png', upsert: true });
+      const { error: uploadError } = await supabase.storage
+        .from('university-files')
+        .upload(filePath, blob, { contentType: 'image/png', upsert: true });
 
-    if (uploadError) throw uploadError;
+      if (uploadError) throw uploadError;
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('university-files')
-      .getPublicUrl(filePath);
+      const { data: { publicUrl } } = supabase.storage
+        .from('university-files')
+        .getPublicUrl(filePath);
 
-    await supabase
-      .from('instructors')
-      .update({ signature_url: publicUrl })
-      .eq('id', instructorInfo.id);
+      await supabase
+        .from('instructors')
+        .update({ signature_url: publicUrl })
+        .eq('id', instructorInfo.id);
 
-    setInstructorInfo((prev: any) => ({ ...prev, signature_url: publicUrl }));
-    alert(t('alertSignatureSaved'));
-  } catch (err: any) {
-    alert('❌ فشل حفظ التوقيع: ' + err.message);
-  }
-};
+      setInstructorInfo((prev: any) => ({ ...prev, signature_url: publicUrl }));
+      alert(t('alertSignatureSaved'));
+    } catch (err: any) {
+      alert('❌ فشل حفظ التوقيع: ' + err.message);
+    }
+  };
 
   const handleFetchApprovedRosters = async () => {
     setIsSearchingRosters(true);
@@ -334,7 +505,7 @@ export default function AdvancedFacultyDashboard() {
           .eq('level_id', searchLevelId)
           .eq('roster_type', 'approved_list')
           .order('created_at', { ascending: false });
-        
+
         data = fallback.data;
         error = fallback.error;
       }
@@ -354,15 +525,16 @@ export default function AdvancedFacultyDashboard() {
     }
   };
 
-  const handleApplyRosterToTable = async (ros: any) => {
+ const handleApplyRosterToTable = async (ros: any) => {
     try {
       const isExcel = ros.file_url?.match(/\.(xlsx|xls|csv)$/i);
       let parsedStudents: any[] = [];
+      const currentSemester = ros.semester || searchSemester || 1;
 
       if (isExcel) {
         const response = await fetch(ros.file_url);
         const arrayBuffer = await response.arrayBuffer();
-        
+
         const XLSX = await import('xlsx');
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const firstSheetName = workbook.SheetNames[0];
@@ -402,54 +574,22 @@ export default function AdvancedFacultyDashboard() {
         return alert(t('alertNoStudents'));
       }
 
-      setStudentsRoster(parsedStudents);
-      setActiveSemester(ros.semester || searchSemester || 1);
-
-      const fullRosterTitle = `كشف معتمد: [ ${departmentNamesMap[searchDeptId]} - ${levelNamesMap[searchLevelId]} ]${ros.title ? ` - (${ros.title})` : ''}`;
-      setActiveRosterHeader(fullRosterTitle);
-
+      const fullRosterTitle = `[ ${departmentNamesMap[searchDeptId]} - ${levelNamesMap[searchLevelId]} ]`;
       const loggedInInstructor = String(instructorInfo.id || localStorage.getItem('university_username') || '').trim();
 
-      const { data: existingRes } = await supabase
+      // 🔑 1. المعرف الفريد الحصري للكشف (يمنع أي تداخل نهائياً)
+      const uniqueRosterTag = `official_roster_${ros.id}`;
+
+      let { data: existingRes } = await supabase
         .from('resources')
         .select('*')
         .eq('instructor_id', loggedInInstructor)
-        .eq('dep_id', searchDeptId)
-        .eq('level_id', searchLevelId)
-        .order('created_at', { ascending: false })
-        .limit(1)
+        .eq('file_url', uniqueRosterTag)
         .maybeSingle();
 
-      if (existingRes) {
-        setSelectedResource(existingRes);
-
-        const { data: savedGrades } = await supabase
-          .from('resource_grades')
-          .select('*')
-          .eq('resource_id', existingRes.id);
-
-        if (savedGrades && savedGrades.length > 0) {
-          const formattedCells: any = {};
-          const extractedCols = new Set<string>(existingRes.custom_columns || []);
-
-          savedGrades.forEach((row: any) => {
-            const studentKey = String(row.student_id).trim();
-            const colKey = String(row.column_name).trim();
-
-            if (!formattedCells[studentKey]) formattedCells[studentKey] = {};
-            formattedCells[studentKey][colKey] = String(row.grade_value || "").trim();
-
-            if (colKey) extractedCols.add(colKey);
-          });
-
-          setCustomColumns(Array.from(extractedCols));
-          setCellData(formattedCells);
-        } else {
-          setCustomColumns(existingRes.custom_columns || []);
-          setCellData({});
-        }
-      } else {
-        const { data: newRes } = await supabase
+      // إذا لم يكن منشأ مسبقاً، يتم إنشاؤه برابطه الفريد
+      if (!existingRes) {
+        const { data: newRes, error: newResError } = await supabase
           .from('resources')
           .insert({
             instructor_id: loggedInInstructor,
@@ -457,15 +597,89 @@ export default function AdvancedFacultyDashboard() {
             level_id: searchLevelId || 1,
             title: fullRosterTitle,
             resource_type: 'accredited_book',
-            file_url: 'official_roster'
+            file_url: uniqueRosterTag
           })
           .select()
           .single();
 
-        if (newRes) setSelectedResource(newRes);
-        setCustomColumns([]);
-        setCellData({});
+        if (newResError) throw newResError;
+        existingRes = newRes;
       }
+
+      let loadedCellData: any = {};
+      let loadedCols: string[] = existingRes?.custom_columns || [];
+      const defaultSessions = ['المحاضرة 1', 'المحاضرة 2', 'المحاضرة 3'];
+      let loadedAttendanceData: any = {};
+      let loadedAttendanceSessions: string[] = defaultSessions;
+
+      // 📊 2. جلب درجات هذا الكشف المحدد فقط
+      const { data: savedGrades } = await supabase
+        .from('resource_grades')
+        .select('*')
+        .eq('resource_id', existingRes.id);
+
+      if (savedGrades && savedGrades.length > 0) {
+        const extractedCols = new Set<string>(existingRes.custom_columns || []);
+        savedGrades.forEach((row: any) => {
+          const studentKey = String(row.student_id).trim();
+          const colKey = String(row.column_name).trim();
+          if (!loadedCellData[studentKey]) loadedCellData[studentKey] = {};
+          loadedCellData[studentKey][colKey] = String(row.grade_value || "").trim();
+          if (colKey) extractedCols.add(colKey);
+        });
+        loadedCols = Array.from(extractedCols);
+      }
+
+      // 📋 3. جلب حضور هذا الكشف المحدد فقط
+      const { data: attData } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('resource_id', existingRes.id);
+
+      if (attData && attData.length > 0) {
+        const sessionsSet = new Set<string>();
+        attData.forEach((row) => {
+          const cleanStudentId = String(row.student_id).trim();
+          const cleanSession = String(row.session_name).trim();
+          if (!loadedAttendanceData[cleanStudentId]) loadedAttendanceData[cleanStudentId] = {};
+          loadedAttendanceData[cleanStudentId][cleanSession] = row.status || 'حاضر';
+          sessionsSet.add(cleanSession);
+        });
+        loadedAttendanceSessions = Array.from(sessionsSet);
+      }
+
+      // 🎯 4. ضبط الحالات المعزولة في الـ State
+      setStudentsRoster(parsedStudents);
+      setSelectedResource(existingRes);
+      setActiveRosterHeader(fullRosterTitle);
+      setActiveSemester(currentSemester);
+      setCustomColumns(loadedCols);
+      setCellData(loadedCellData);
+      setAttendanceSessions(loadedAttendanceSessions);
+      setAttendanceData(loadedAttendanceData);
+
+      const rosterSession = {
+        studentsRoster: parsedStudents,
+        selectedResource: existingRes,
+        activeRosterHeader: fullRosterTitle,
+        manualSubjectName: manualSubjectName,
+        activeSemester: currentSemester,
+        customColumns: loadedCols,
+        cellData: loadedCellData,
+        attendanceSessions: loadedAttendanceSessions,
+        attendanceData: loadedAttendanceData
+      };
+      saveCurrentRosterSession(rosterSession);
+
+      pushToRecentRosters({
+        keyId: `${ros.id}_${searchDeptId}_${searchLevelId}_${currentSemester}`,
+        title: fullRosterTitle,
+        dep_id: searchDeptId,
+        level_id: searchLevelId,
+        semester: currentSemester,
+        rawRoster: ros,
+        savedSession: rosterSession
+      });
 
       setShowRosterModal(false);
       alert(t('alertRosterSuccess', { count: parsedStudents.length }));
@@ -478,25 +692,141 @@ export default function AdvancedFacultyDashboard() {
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAssignTitle) return alert(t('alertEnterAssignTitle'));
+    if (!newAssignDueDate) return alert(t('alertEnterDueDate'));
 
     try {
       const { error } = await supabase
         .from('assignments')
         .insert({
           instructor_id: instructorInfo.id,
-          dept_id: searchDeptId,
-          level_id: searchLevelId,
+          dept_id: newAssignDeptId,
+          level_id: newAssignLevelId,
           title: newAssignTitle,
-          max_score: newAssignScore
+          description: newAssignDescription,
+          max_score: newAssignScore,
+          due_date: newAssignDueDate
         });
 
       if (error) throw error;
 
       alert(t('alertAssignSuccess'));
       setNewAssignTitle('');
+      setNewAssignDescription('');
+      setNewAssignDueDate('');
       fetchInstructorDataAndResources();
     } catch (err: any) {
-      alert(t('alertAssignFailed') + err.message);
+      alert(t('alertAssignFailed') + " " + err.message);
+    }
+  };
+
+ const handleSelectRecentRoster = async (rec: any) => {
+    try {
+      const targetDeptId = rec.dep_id;
+      const targetLevelId = rec.level_id;
+      const targetSemester = rec.semester || 1;
+      const targetDeptName = departmentNamesMap[targetDeptId];
+      const targetLevelName = levelNamesMap[targetLevelId];
+
+      let students = rec.savedSession?.studentsRoster || [];
+      if (!students || students.length === 0) {
+        const { data: currentStudents } = await supabase
+          .from('students')
+          .select('*')
+          .eq('department', targetDeptName)
+          .ilike('level', `${targetLevelName}%`);
+
+        if (currentStudents) {
+          students = currentStudents.map((s: any) => ({
+            ...s,
+            student_id: String(s.student_id || s.academic_id || s.id || '').trim(),
+            name: String(s.name || s.student_name || 'طالب غير معروف').trim(),
+            status: s.status || 'منتظم'
+          }));
+        }
+      }
+
+      const loggedInInstructor = String(instructorInfo.id || localStorage.getItem('university_username') || '').trim();
+      const uniqueRosterTag = `official_roster_${rec.rawRoster?.id || rec.savedSession?.selectedResource?.id || rec.keyId}`;
+
+      const { data: existingRes } = await supabase
+        .from('resources')
+        .select('*')
+        .eq('instructor_id', loggedInInstructor)
+        .eq('file_url', uniqueRosterTag)
+        .maybeSingle();
+
+      const defaultSessions = ['المحاضرة 1', 'المحاضرة 2', 'المحاضرة 3'];
+      let formattedCells: any = {};
+      let finalCols: string[] = [];
+      let finalAttData: any = {};
+      let finalAttSessions: string[] = defaultSessions;
+
+      if (existingRes) {
+        // جلب درجات المرجع الحصري
+        const { data: savedGrades } = await supabase
+          .from('resource_grades')
+          .select('*')
+          .eq('resource_id', existingRes.id);
+
+        const extractedCols = new Set<string>(existingRes.custom_columns || []);
+        if (savedGrades && savedGrades.length > 0) {
+          savedGrades.forEach((row: any) => {
+            const studentKey = String(row.student_id).trim();
+            const colKey = String(row.column_name).trim();
+            if (!formattedCells[studentKey]) formattedCells[studentKey] = {};
+            formattedCells[studentKey][colKey] = String(row.grade_value || "").trim();
+            if (colKey) extractedCols.add(colKey);
+          });
+        }
+
+        const localCols = rec.savedSession?.customColumns || [];
+        finalCols = Array.from(new Set([...Array.from(extractedCols), ...localCols]));
+
+        // جلب حضور المرجع الحصري
+        const { data: attData } = await supabase
+          .from('attendance_records')
+          .select('*')
+          .eq('resource_id', existingRes.id);
+
+        if (attData && attData.length > 0) {
+          const sessionsSet = new Set<string>();
+          attData.forEach((row) => {
+            const cleanStudentId = String(row.student_id).trim();
+            const cleanSession = String(row.session_name).trim();
+            if (!finalAttData[cleanStudentId]) finalAttData[cleanStudentId] = {};
+            finalAttData[cleanStudentId][cleanSession] = row.status || 'حاضر';
+            sessionsSet.add(cleanSession);
+          });
+          finalAttSessions = Array.from(sessionsSet);
+        }
+      }
+
+      setStudentsRoster(students);
+      setSelectedResource(existingRes || null);
+      setActiveRosterHeader(rec.title);
+      setActiveSemester(targetSemester);
+      if (rec.savedSession?.manualSubjectName) {
+        setManualSubjectName(rec.savedSession.manualSubjectName);
+      }
+      setCustomColumns(finalCols);
+      setCellData(formattedCells);
+      setAttendanceSessions(finalAttSessions);
+      setAttendanceData(finalAttData);
+
+      saveCurrentRosterSession({
+        studentsRoster: students,
+        selectedResource: existingRes,
+        activeRosterHeader: rec.title,
+        manualSubjectName: manualSubjectName || rec.savedSession?.manualSubjectName || '',
+        activeSemester: targetSemester,
+        customColumns: finalCols,
+        cellData: formattedCells,
+        attendanceSessions: finalAttSessions,
+        attendanceData: finalAttData
+      });
+
+    } catch (err: any) {
+      console.error("خطأ استرجاع الكشف:", err);
     }
   };
 
@@ -531,7 +861,7 @@ export default function AdvancedFacultyDashboard() {
           currentResourceId = existingRes.id;
         } else {
           const subjectTitle = manualSubjectName.trim() ? manualSubjectName : (activeRosterHeader || "كشف درجات معتمد");
-          
+
           const { data: newRes, error: resError } = await supabase
             .from('resources')
             .insert({
@@ -587,6 +917,18 @@ export default function AdvancedFacultyDashboard() {
         if (gradeError) throw gradeError;
       }
 
+      saveCurrentRosterSession({
+        studentsRoster,
+        selectedResource,
+        activeRosterHeader,
+        manualSubjectName,
+        activeSemester,
+        customColumns,
+        cellData,
+        attendanceSessions,
+        attendanceData
+      });
+
       await fetchInstructorDataAndResources();
       alert(t('alertGradesSaved', { count: rowsToUpsert.length }));
     } catch (err: any) {
@@ -616,47 +958,108 @@ export default function AdvancedFacultyDashboard() {
     }
   };
 
-  const handleExportToExcel = () => {
-    if (studentsRoster.length === 0) return;
-
-    let csvContent = "\uFEFF"; 
-    csvContent += `جمهورية اليمن,, جامعة إب,, كشف رسمي\n`;
-    csvContent += `اسم الأستاذ:, ${instructorInfo.name},, الكلية:, ${instructorInfo.college_name}\n`;
-    csvContent += `الكشف:, ${activeRosterHeader || selectedResource?.title || "كشف طلاب"},, تاريخ الاستخراج:, ${new Date().toLocaleDateString('ar-YE')}\n\n`;
-    csvContent += `المادة:, ${manualSubjectName.trim() ? manualSubjectName : "...................."},, تاريخ الاستخراج:, ${new Date().toLocaleDateString('ar-YE')}\n\n`;
-
-    const headers = ["الرقم الأكاديمي", "اسم الطالب", "الحالة", ...customColumns];
-    csvContent += headers.join(",") + "\n";
-
-    studentsRoster.forEach((student) => {
-      const row = [
-        student.student_id,
-        student.name,
-        student.status || "منتظم"
-      ];
-      customColumns.forEach((col) => {
-        row.push(cellData[student.student_id]?.[col] || "");
-      });
-      csvContent += row.join(",") + "\n";
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `كشف_الطلاب.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const handleCellChange = (studentId: string, colName: string, value: string) => {
     const cleanStudentId = String(studentId).trim();
     const cleanColName = String(colName).trim();
-    setCellData(prev => ({
+    setCellData((prev: any) => ({
       ...prev,
       [cleanStudentId]: { ...(prev[cleanStudentId] || {}), [cleanColName]: value }
     }));
+  };
+
+  // 📊 تصدير كشف درجات إكسل معتمد بصيغة XLSX فائقة التنسيق
+  const handleExportToExcel = async () => {
+    if (studentsRoster.length === 0) {
+      alert("لا يوجد طلاب في الكشف لتصديرهم!");
+      return;
+    }
+
+    try {
+      const XLSX = await import('xlsx');
+
+      const doctorName = instructorInfo?.name || "د. ....................";
+      const collegeName = instructorInfo?.college_name || "جامعة إب";
+      const subjectName = manualSubjectName.trim() ? manualSubjectName.trim() : "";
+      
+      const deptId = selectedResource?.dep_id || selectedResource?.dept_id || searchDeptId;
+      const levelId = selectedResource?.level_id || searchLevelId;
+      const deptName = departmentNamesMap[deptId] || "القسم العلمي";
+      const levelName = levelNamesMap[levelId] || "المستوى الدراسي";
+      
+      const semesterName = activeSemester === 2 ? "الفصل الدراسي الثاني" : "الفصل الدراسي الأول";
+      const currentDate = new Date().toLocaleDateString('ar-YE');
+
+      const wsData: any[][] = [
+        ["🏛️  جمهورية اليمن - جامعة إب - كشف رصد الدرجات الرسمي المعتمد"],
+        [`أستاذ المادة: ${doctorName}   |   الكلية والمؤسسة: ${collegeName}`],
+        [`المادة الدراسية: ${subjectName}   |   القسم العلمي: ${deptName}`],
+        [`المستوى الدراسي: ${levelName}   |   ${semesterName}   |   تاريخ الاستخراج: ${currentDate}`],
+        [],
+        ["الرقم الأكاديمي", "اسم الطالب بالكامل", "حالة القيد", ...customColumns]
+      ];
+
+      studentsRoster.forEach((student) => {
+        const studentId = student.student_id || student.academic_id || student.id || "---";
+        const studentName = student.name || student.student_name || "طالب غير معروف";
+        const studentStatus = student.status || "منتظم";
+
+        const row = [studentId, studentName, studentStatus];
+        customColumns.forEach((col) => {
+          row.push(cellData[studentId]?.[col] || "");
+        });
+        wsData.push(row);
+      });
+
+      const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+      worksheet['!dir'] = "rtl";
+      worksheet['!views'] = [{ RTL: true }];
+
+      const maxNameLength = studentsRoster.reduce((max, s) => {
+        const name = s.name || s.student_name || "";
+        return Math.max(max, name.length);
+      }, 25);
+
+      worksheet['!cols'] = [
+        { wch: 18 },
+        { wch: Math.max(35, maxNameLength + 5) },
+        { wch: 15 },
+        ...customColumns.map(col => ({ wch: Math.max(18, col.length + 6) }))
+      ];
+
+      const lastColIndex = 2 + customColumns.length;
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: lastColIndex } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: lastColIndex } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: lastColIndex } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: lastColIndex } },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      if (!workbook.Workbook) workbook.Workbook = {};
+      workbook.Workbook.Views = [{ RTL: true }];
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, "كشف الدرجات");
+
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+
+      const safeFileName = manualSubjectName.trim() ? manualSubjectName.replace(/\s+/g, '_') : "كشف_درجات";
+      const exportFileName = `كشف_درجات_${safeFileName}_${activeSemester === 2 ? 'ترم2' : 'ترم1'}.xlsx`;
+      
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", downloadUrl);
+      link.setAttribute("download", exportFileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+
+    } catch (err: any) {
+      alert("❌ حدث خطأ أثناء تصدير ملف الإكسل: " + err.message);
+    }
   };
 
   return (
@@ -688,17 +1091,21 @@ export default function AdvancedFacultyDashboard() {
         </div>
       </header>
 
-      {/* ترويسة الطباعة الرسمية */}
+      {/* ترويسة الطباعة الرسمية النظيفة */}
       <div className="hidden print:flex flex-col items-center text-center border-b-2 border-slate-900 pb-4 mb-6 w-full text-slate-900 select-none">
         <div className="w-full flex justify-between items-center text-xs font-bold px-4">
+          
           <div className="text-start space-y-1">
-            <p>{t('ibbUniversity')}</p>
-            <p>{instructorInfo.college_name}</p>
+            <p className="font-black text-sm text-slate-900">{t('ibbUniversity')}</p>
+            <p className="font-bold text-slate-700">{instructorInfo.college_name || "كلية الهندسة"}</p>
             <p className="text-emerald-800 font-black">
-              {activeRosterHeader || (selectedResource ? `قسم: ${departmentNamesMap[selectedResource.dep_id || selectedResource.dept_id]}` : "---")}
+              القسم: {departmentNamesMap[selectedResource?.dep_id || selectedResource?.dept_id || searchDeptId] || "---"}
             </p>
-            <p className="font-black text-slate-800">
-              {t('semesterLabel')} {activeSemester === 2 ? t('semester2') : t('semester1')}
+            <p className="font-bold text-slate-800">
+              المستوى: {(levelNamesMap[selectedResource?.level_id || searchLevelId] || "").replace('المستوى ', '') || "---"}
+            </p>
+            <p className="font-bold text-slate-800">
+              الفصل الدراسي: {activeSemester === 2 ? "الثاني" : "الأول"}
             </p>
           </div>
 
@@ -723,11 +1130,11 @@ export default function AdvancedFacultyDashboard() {
       ) : (
         <div className="max-w-[1500px] w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6 relative z-10 flex-grow print:block">
           
-          {/* الكرت الجانبي للدكتور والوظائف المتقدمة */}
-          <aside className="border border-white/90 bg-white/60 backdrop-blur-md rounded-3xl p-6 shadow-sm h-fit space-y-4 print:hidden">
+          {/* الكرت الجانبي */}
+          <aside className="border border-white/80 bg-white/70 backdrop-blur-xl rounded-3xl p-5 shadow-lg shadow-slate-200/50 h-fit space-y-4 print:hidden">
+            
             <div className="text-center space-y-3 border-b border-slate-200/60 pb-4">
-              <div className="relative w-24 h-24 mx-auto select-none">
-                
+              <div className="relative w-22 h-22 mx-auto select-none">
                 <button 
                   type="button"
                   onClick={handleAvatarClick}
@@ -749,71 +1156,157 @@ export default function AdvancedFacultyDashboard() {
                     <span>{isUpdatingAvatar ? t('uploadingPhoto') : t('editPhoto')}</span>
                   </div>
                 </button>
-                
-
                 <span className="absolute -bottom-1 -end-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-md animate-pulse z-10" />
               </div>
-              
-
-              <input 
-                type="file"
-                ref={avatarInputRef}
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarChange}
-              />
 
               <div className="space-y-1">
                 <h2 className="text-sm font-black text-slate-900">{instructorInfo.name}</h2>
                 <p className="text-[11px] font-bold text-slate-500">{instructorInfo.college_name}</p>
-                <p className="text-[10px] font-mono text-slate-400 bg-slate-100 py-1 rounded-md">
+                <p className="text-[10px] font-mono text-emerald-800 bg-emerald-50 border border-emerald-200/60 py-1 px-2 rounded-lg inline-block font-bold">
                   {t('academicIdLabel')} {instructorInfo.id}
                 </p>
               </div>
             </div>
-            {/* ✍️ زر إعداد وتعديل التوقيع الإلكتروني */}
-<button
-  type="button"
-  onClick={() => setShowSignatureModal(true)}
-  className="w-full py-2.5 px-4 rounded-xl bg-slate-900 text-white font-black text-xs transition-all flex items-center justify-center gap-2 hover:bg-slate-800 shadow-sm cursor-pointer"
->
-  <PenTool className="w-4 h-4 text-emerald-400" />
-  <span>{t('digitalSignatureBtn')}</span>
-</button>
 
-            <Link href="/faculty/upload" className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-center font-black py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-transform active:scale-95 shadow-md">
-              <Plus className="w-4 h-4" /> {t('uploadNewResource')}
-            </Link>
+            <input 
+              type="file"
+              ref={avatarInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
 
-            <button
-              type="button"
-              onClick={() => setShowRosterModal(true)}
-              className="w-full py-3 px-4 rounded-xl bg-[#00bc7e]/10 hover:bg-[#00bc7e]/20 border border-[#00bc7e]/30 text-[#059669] font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-            >
-              <FileCheck2 className="w-4 h-4 text-[#059669]" />
-              <span>{t('fetchRosterBtn')}</span>
-            </button>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowSignatureModal(true)}
+                className="w-full py-2.5 px-3.5 rounded-2xl bg-[#0A2540] text-white font-bold text-xs transition-all flex items-center justify-between hover:bg-[#081e33] shadow-sm cursor-pointer group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400">
+                    <PenTool className="w-3.5 h-3.5" />
+                  </div>
+                  <span>{t('digitalSignatureBtn')}</span>
+                </div>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md font-mono font-bold">معتمد</span>
+              </button>
 
-            {/* 📝 زر لوحة التكاليف والواجبات */}
-            <button
-              type="button"
-              onClick={() => setShowAssignmentsModal(true)}
-              className="w-full py-2.5 px-4 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-800 font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-            >
-              <ClipboardList className="w-4 h-4 text-indigo-600" />
-              <span>{t('manageAssignmentsBtn')} ({assignmentsList.length})</span>
-            </button>
+              <Link 
+                href="/faculty/upload" 
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-2.5 px-3.5 rounded-2xl text-xs flex items-center justify-between transition-all shadow-sm active:scale-98"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <span>{t('uploadNewResource')}</span>
+                </div>
+              </Link>
+            </div>
 
-            <a
-              href="https://ibbunivsas.net/Default.aspx"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-              title={t('dedicatedRosterPlatform')}
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-              <span>{t('dedicatedRosterPlatform')}</span>
-            </a>
+            <div className="space-y-2 pt-2 border-t border-slate-200/60">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block px-1">الرصد والتكاليف</span>
+
+              <button
+                type="button"
+                onClick={() => setShowRosterModal(true)}
+                className="w-full py-2.5 px-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 text-emerald-900 font-bold text-xs transition-all flex items-center gap-2.5 cursor-pointer"
+              >
+                <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                  <FileCheck2 className="w-3.5 h-3.5" />
+                </div>
+                <span>{t('fetchRosterBtn')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAssignmentsModal(true)}
+                className="w-full py-2.5 px-3 rounded-2xl bg-indigo-50 hover:bg-indigo-100/80 border border-indigo-200/80 text-indigo-900 font-bold text-xs transition-all flex items-center justify-between cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                    <ClipboardList className="w-3.5 h-3.5" />
+                  </div>
+                  <span>{t('manageAssignmentsBtn')}</span>
+                </div>
+                <span className="text-[10px] font-mono font-black bg-indigo-200/80 text-indigo-800 px-2 py-0.5 rounded-lg">
+                  {assignmentsList.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSubmissionsModal(true);
+                  localStorage.setItem('last_seen_submissions_count', String(totalSubmissionsCount));
+                  setUnreadSubmissionsCount(0);
+                }}
+                className="relative w-full py-2.5 px-3 rounded-2xl bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200/80 text-amber-950 font-bold text-xs transition-all flex items-center justify-between cursor-pointer group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                    <FileText className="w-3.5 h-3.5" />
+                  </div>
+                  <span>{t('receiveStudentSubmissions')}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] font-mono font-black px-1.5 py-0.5 rounded-md ${
+                    unreadSubmissionsCount > 0 
+                      ? 'bg-rose-500 text-white animate-pulse' 
+                      : 'text-amber-800 bg-amber-200/60'
+                  }`}>
+                    {totalSubmissionsCount}
+                  </span>
+
+                  {unreadSubmissionsCount > 0 && (
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+                    </span>
+                  )}
+                </div>
+              </button>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-slate-200/60">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block px-1">الأرشيف الأكاديمي</span>
+
+              <button
+                type="button"
+                onClick={() => setShowProjectsModal(true)}
+                className="w-full py-2.5 px-3 rounded-2xl bg-teal-50/70 hover:bg-teal-100/70 border border-teal-200/70 text-teal-900 font-bold text-xs transition-all flex items-center gap-2.5 cursor-pointer"
+              >
+                <div className="w-7 h-7 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-xs">
+                  <FolderGit2 className="w-3.5 h-3.5" />
+                </div>
+                <span>{t('engineeringProjectsArchive')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowThesesModal(true)}
+                className="w-full py-2.5 px-3 rounded-2xl bg-purple-50/70 hover:bg-purple-100/70 border border-purple-200/70 text-purple-900 font-bold text-xs transition-all flex items-center gap-2.5 cursor-pointer"
+              >
+                <div className="w-7 h-7 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs">
+                  <GraduationCap className="w-3.5 h-3.5" />
+                </div>
+                <span>{t('thesesArchive')}</span>
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-slate-200/60">
+              <a
+                href="https://ibbunivsas.net/Default.aspx"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-3 rounded-2xl bg-slate-100/80 hover:bg-slate-200/80 border border-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                <span>{t('dedicatedRosterPlatform')}</span>
+              </a>
+            </div>
+
           </aside>
 
           {/* القسم الرئيسي */}
@@ -829,6 +1322,64 @@ export default function AdvancedFacultyDashboard() {
               setPreviewType={setPreviewType}
               router={router}
             />
+
+            {/* 🌟 شريط الكشوفات السريعة الاحترافي */}
+            {recentRosters.length > 0 && (
+              <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/80 p-2.5 shadow-xs flex items-center justify-between gap-3 select-none print:hidden">
+                
+                <div className="flex items-center gap-2 flex-shrink-0 pe-2 border-e border-slate-200/60">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div className="hidden sm:block">
+                    <p className="text-[11px] font-black text-slate-800 leading-none">الكشوفات السريعة</p>
+                    <p className="text-[9px] text-slate-400 font-bold">({recentRosters.length}) محفوظة</p>
+                  </div>
+                </div>
+<div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1 flex-grow">
+                  {recentRosters.map((rec) => {
+                    const isActive = activeRosterHeader === rec.title;
+                    const cleanTitle = rec.title.replace('كشف معتمد: ', '').replace('[ ', '').replace(' ]', '');
+
+                    return (
+                      <div
+                        key={rec.keyId || rec.title}
+                        onClick={() => handleSelectRecentRoster(rec)}
+                        className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border whitespace-nowrap ${
+                          isActive
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-400/80 shadow-xs ring-2 ring-emerald-500/10'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/80'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                        <span>{cleanTitle}</span>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleRemoveSingleRecent(rec.keyId, e)}
+                          title="إزالة من القائمة السريعة"
+                          className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-rose-100 text-slate-400 hover:text-rose-600 rounded-md transition-all ms-1"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {studentsRoster.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearCurrentRoster}
+                    className="flex-shrink-0 flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50 px-2.5 py-1.5 rounded-xl border border-rose-200 transition-all cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline">إغلاق الكشف</span>
+                  </button>
+                )}
+
+              </div>
+            )}
 
             {/* ✏️ 2. حقل كتابة اسم المادة يدويًا للطباعة */}
             <div className="flex items-center gap-2 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs print:hidden">
@@ -859,6 +1410,10 @@ export default function AdvancedFacultyDashboard() {
               onSaveAllData={handleSaveAllData}
               isSaving={isSaving}
               onExportToExcel={handleExportToExcel}
+              attendanceSessions={attendanceSessions}
+              setAttendanceSessions={setAttendanceSessions}
+              attendanceData={attendanceData}
+              setAttendanceData={setAttendanceData}
             />
 
           </main>
@@ -982,12 +1537,13 @@ export default function AdvancedFacultyDashboard() {
           </div>
         </div>
       )}
+      
       <SignatureModal
-  isOpen={showSignatureModal}
-  onClose={() => setShowSignatureModal(false)}
-  onSave={handleSaveSignatureBlob}
-  existingSignatureUrl={instructorInfo?.signature_url}
-/>
+        isOpen={showSignatureModal}
+        onClose={() => setShowSignatureModal(false)}
+        onSave={handleSaveSignatureBlob}
+        existingSignatureUrl={instructorInfo?.signature_url}
+      />
 
       {/* 📝 3. نافذة إدارة التكاليف والواجبات */}
       {showAssignmentsModal && (
@@ -1005,23 +1561,59 @@ export default function AdvancedFacultyDashboard() {
             </div>
 
             <form onSubmit={handleCreateAssignment} className="space-y-3 bg-[#f4f7f5] p-4 rounded-2xl border border-[#cde0d5]">
-              <span className="text-xs font-black text-[#062c35] block">{t('newAssignmentHeading')}</span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <input 
-                  type="text" 
-                  placeholder={t('assignTitlePlaceholder')} 
-                  value={newAssignTitle} 
-                  onChange={(e) => setNewAssignTitle(e.target.value)} 
-                  className="sm:col-span-2 p-2 bg-white border border-[#cde0d5] rounded-xl text-xs font-bold text-[#062c35]"
-                />
-                <input 
-                  type="number" 
-                  placeholder={t('maxScorePlaceholder')} 
-                  value={newAssignScore} 
-                  onChange={(e) => setNewAssignScore(parseInt(e.target.value) || 10)} 
-                  className="p-2 bg-white border border-[#cde0d5] rounded-xl text-xs font-bold text-[#062c35]"
-                />
+              <span className="text-xs font-black text-[#062c35] block border-b border-slate-200 pb-2 mb-2">{t('newAssignmentHeading')}</span>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">{t('targetDepartment')}</label>
+                  <select
+                    value={newAssignDeptId}
+                    onChange={(e) => {
+                      const newDept = parseInt(e.target.value);
+                      setNewAssignDeptId(newDept);
+                      if (newAssignLevelId > getMaxLevels(newDept)) setNewAssignLevelId(1);
+                    }}
+                    className="w-full p-2 bg-white border border-[#cde0d5] rounded-xl text-xs font-bold text-[#062c35]"
+                  >
+                    {universityStructure.flatMap(c => c.departments).map(dept => (
+                      <option key={dept.id} value={dept.id}>➔ {dept.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">{t('modalLevelLabel')}</label>
+                  <select
+                    value={newAssignLevelId}
+                    onChange={(e) => setNewAssignLevelId(parseInt(e.target.value))}
+                    className="w-full p-2 bg-white border border-[#cde0d5] rounded-xl text-xs font-bold text-[#062c35]"
+                  >
+                    {Array.from({ length: getMaxLevels(newAssignDeptId) }, (_, i) => i + 1).map((lvl) => (
+                      <option key={lvl} value={lvl}>{levelNamesMap[lvl]}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">{t('assignTitlePlaceholder')}</label>
+                  <input type="text" placeholder={t('assignTitlePlaceholder')} value={newAssignTitle} onChange={(e) => setNewAssignTitle(e.target.value)} className="w-full p-2 bg-white border border-[#cde0d5] rounded-xl text-xs font-bold text-[#062c35]" />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">{t('deadline')}</label>
+                  <input type="datetime-local" value={newAssignDueDate} onChange={(e) => setNewAssignDueDate(e.target.value)} dir="ltr" lang="en" className="w-full p-2 bg-white border border-[#cde0d5] rounded-xl text-xs font-bold text-[#062c35] text-left" />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">{t('score')}</label>
+                  <input type="number" placeholder={t('maxScorePlaceholder')} value={newAssignScore} onChange={(e) => setNewAssignScore(parseInt(e.target.value) || 10)} className="w-full p-2 bg-white border border-[#cde0d5] rounded-xl text-xs font-bold text-[#062c35]" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">{t('assignmentDescription')}</label>
+                <textarea placeholder={t('descriptionPlaceholder')} value={newAssignDescription} onChange={(e) => setNewAssignDescription(e.target.value)} rows={2} className="w-full p-2 bg-white border border-[#cde0d5] rounded-xl text-xs font-bold text-[#062c35] resize-none" ></textarea>
+              </div>
+
               <button type="submit" className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer">
                 <Send className="w-3.5 h-3.5" />
                 <span>{t('publishAssignmentBtn')}</span>
@@ -1079,6 +1671,94 @@ export default function AdvancedFacultyDashboard() {
               ) : (
                 <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`} className="w-full h-full rounded-2xl border-none bg-white" title="PDF Viewer"/>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSubmissionsModal && (
+        <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm dir-rtl text-right">
+          <div className="bg-white rounded-3xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in duration-200">
+            <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+              <h3 className="font-black text-sm text-[#062c35]">{t('submissionsReviewPanel')}</h3>
+              <button onClick={() => { setShowSubmissionsModal(false); setSelectedAssignmentForReview(null); }} className="p-2 hover:bg-slate-200 rounded-full"><X className="w-5 h-5"/></button>
+            </div>
+            <div className="flex flex-grow overflow-hidden">
+              <div className="w-1/3 border-l overflow-y-auto p-3 space-y-2">
+                {assignmentsList.map(assign => (
+                  <button 
+                    key={assign.id}
+                    onClick={async () => {
+                      setSelectedAssignmentForReview(assign);
+                      const { data } = await supabase
+                        .from('assignment_submissions')
+                        .select('*, students(name, student_id)')
+                        .eq('assignment_id', assign.id);
+                      setStudentSubmissions(data || []);
+                    }}
+                    className={`w-full p-3 rounded-xl text-xs font-bold text-right transition-all ${selectedAssignmentForReview?.id === assign.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 hover:bg-slate-200'}`}
+                  >
+                    {assign.title}
+                    <span className="block text-[9px] opacity-70 mt-1">{departmentNamesMap[assign.dept_id]} - {levelNamesMap[assign.level_id]}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="w-2/3 p-4 overflow-y-auto">
+                {selectedAssignmentForReview ? (
+                  <div className="space-y-4">
+                    <h4 className="font-black text-indigo-800 border-b pb-2">{selectedAssignmentForReview.title}</h4>
+                    {studentSubmissions.length > 0 ? studentSubmissions.map((sub, idx) => (
+                      <div key={idx} className="p-4 border rounded-2xl flex items-center justify-between bg-slate-50">
+                        <div>
+                          <p className="font-black text-sm">{sub.students?.name || t('unknownStudent')}</p>
+                          <p className="text-[10px] text-slate-500 font-mono">ID: {sub.students?.student_id}</p>
+                        </div>
+                        <a href={sub.file_url} target="_blank" className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black shadow-md hover:bg-emerald-700">
+                          {t('downloadAssignment')}
+                        </a>
+                      </div>
+                    )) : <p className="text-center text-slate-400 py-10">{t('noSubmissionsYet')}</p>}
+                  </div>
+                ) : <p className="text-center text-slate-400 py-10">{t('selectAssignmentToViewStudents')}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showProjectsModal && (
+        <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm dir-rtl text-right">
+          <div className="bg-[#edf2ee] border border-[#d2ded6] rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative animate-in zoom-in duration-200">
+            <div className="p-4 border-b border-[#d8e3dd] flex justify-between items-center bg-white/60">
+              <div className="flex items-center gap-2">
+                <FolderGit2 className="w-5 h-5 text-[#059669]" />
+                <h3 className="font-black text-sm text-[#062c35]">{t('manageGraduationProjects')}</h3>
+              </div>
+              <button onClick={() => setShowProjectsModal(false)} className="p-2 rounded-xl bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer transition-all">
+                <X className="w-5 h-5"/>
+              </button>
+            </div>
+            <div className="flex-grow overflow-y-auto p-4 md:p-6">
+              <ProjectsManager />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showThesesModal && (
+        <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm dir-rtl text-right">
+          <div className="bg-[#edf2ee] border border-[#d2ded6] rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative animate-in zoom-in duration-200">
+            <div className="p-4 border-b border-[#d8e3dd] flex justify-between items-center bg-white/60">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-purple-600" />
+                <h3 className="font-black text-sm text-[#062c35]">{t('manageTheses')}</h3>
+              </div>
+              <button onClick={() => setShowThesesModal(false)} className="p-2 rounded-xl bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer transition-all">
+                <X className="w-5 h-5"/>
+              </button>
+            </div>
+            <div className="flex-grow overflow-y-auto p-4 md:p-6">
+              <ThesesManager />
             </div>
           </div>
         </div>

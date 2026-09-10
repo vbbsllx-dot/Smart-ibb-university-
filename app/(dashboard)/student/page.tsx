@@ -3,10 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import StudentAssignments from '../../components/student/StudentAssignments';
+
 // 1️⃣ استيراد عميل الاتصال بـ Supabase
 import { supabase } from '@/lib/supabase';
 
 import DubbingStudio from '../../components/student/DubbingStudio';
+import AbsenceTransaction from '../../components/student/AbsenceTransaction';
+import SuspendTransaction from '../../components/student/SuspendTransaction';
+import ResumeTransaction from '../../components/student/ResumeTransaction';
+import WithdrawTransaction from '../../components/student/WithdrawTransaction';
+
+
 
 export default function StudentDashboard() {
   const t = useTranslations('StudentDashboard');
@@ -16,7 +24,8 @@ export default function StudentDashboard() {
   const [time, setTime] = useState('');
 
   // حالة التحكم بتبويبات المعاملات الطلابية
-  const [activeTransactionTab, setActiveTransactionTab] = useState('absence');
+// حالة للتحكم في أي نافذة منبثقة هي المفتوحة حالياً
+const [openTransactionModal, setOpenTransactionModal] = useState<string | null>(null);
 
   // حالات رفع الملخصات
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -30,8 +39,49 @@ export default function StudentDashboard() {
   const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [activeView, setActiveView] = useState('schedule');
+  const [activeView, setActiveView] = useState('assignments');
 
+
+  // 1. حالة لتخزين إعدادات المعاملات (مفعلة/مغلقة)
+  const [transactionSettings, setTransactionSettings] = useState<any>({});
+
+  // 2. جلب الإعدادات من جدول transaction_settings
+  useEffect(() => {
+    const fetchTransactionSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('transaction_settings')
+          .select('type, is_active, closed_message');
+
+        if (error) throw error;
+
+        if (data) {
+          // تحويل المصفوفة إلى كائن لسهولة الوصول إليه باسم المعاملة
+          // سيصبح هكذا: { absence: {is_active: false, closed_message: "..."}, resume: {...} }
+          const settingsMap: any = {};
+          data.forEach(item => {
+            settingsMap[item.type] = item;
+          });
+          setTransactionSettings(settingsMap);
+        }
+      } catch (error) {
+        console.error("خطأ في جلب إعدادات المعاملات:", error);
+      }
+    };
+
+    fetchTransactionSettings();
+  }, []); // تعمل مرة واحدة عند تحميل الصفحة
+
+   // دالة ذكية لتغيير الشاشة والتمرير للأعلى بنعومة
+  const handleViewChange = (view: string) => {
+    setActiveView(view);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+
+
+
+ 
   useEffect(() => {
     const updateClock = () => {
       setTime(new Date().toLocaleTimeString('ar-YE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -94,14 +144,15 @@ export default function StudentDashboard() {
           const studentLevelText = tGlobal(`levels.${studentRow.level_id}` as any) || levelNames[studentRow.level_id] || `المستوى ${studentRow.level_id}`;
 
           setStudentData({
+            db_id: studentRow.id, // 👈 أضفنا هذا السطر لحفظ المفتاح الأساسي الحقيقي لقاعدة البيانات
             name: studentRow.name,
-            id: studentRow.student_id,
+            id: studentRow.student_id, // هذا سيبقى كما هو كـ "رقم أكاديمي"
             username: studentRow.user_accounts.username,
             department: departmentName,
-            dep_id: studentRow.dep_id, 
+            dep_id: studentRow.dep_id,
             college_name: collegeName,
-            level: studentLevelText, // 👈 هنا التعديل! أصبح ديناميكياً ومترجماً
-            level_id: studentRow.level_id, 
+            level: studentLevelText, 
+            level_id: studentRow.level_id,
             gpa: studentRow.gpa || "0.00",
             status: studentRow.status || t('statusEnrolled'),
             schedule_url: scheduleUrl
@@ -131,6 +182,7 @@ export default function StudentDashboard() {
   // دالة رفع الملخص إلى قاعدة البيانات والمكتبة
   const handleUploadResource = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     
     if (!uploadFile || !uploadTitle || !uploadCourse) {
       setUploadMessage({ type: 'error', text: t('errFillAllFields') });
@@ -299,10 +351,29 @@ export default function StudentDashboard() {
             {/* 2. قسم بوابات الوصول الذكية (الكروت الزجاجية) */}
             <div className="space-y-3.5 border-t border-slate-200/60 pt-6">
               <h3 className="text-[10px] font-black text-slate-400 px-1 uppercase tracking-widest mb-2">{t('smartPortals')}</h3>
+
+              {/* 7️⃣ كرت التكاليف والمهام (الذي قمت أنت بإضافته) */}
+              <button 
+                onClick={() => handleViewChange('assignments')}
+                className={`h-[125px] rounded-2xl p-3 flex flex-col justify-between relative group/card border ${activeView === 'assignments' ? 'border-cyan-400 shadow-md bg-white/90' : 'border-white/80 bg-white/60 hover:-translate-y-1 hover:bg-white'} backdrop-blur-md transition-all duration-500 ease-out text-right w-full cursor-pointer`}
+              >
+                <div className="w-full h-[55px] rounded-xl bg-cover bg-center relative overflow-hidden border border-white/40 shadow-inner" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=400')" }}>
+                  <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[0.5px]" />
+                  <div className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-lg bg-black/40 backdrop-blur-md border border-white/20 text-xs">🎯</div>
+                </div>
+                <div className="mt-1">
+                  <h4 className={`font-black text-xs tracking-tight transition-colors ${activeView === 'assignments' ? 'text-cyan-600' : 'text-slate-900 group-hover/card:text-cyan-600'}`}>
+                    {t('portalAssignmentsTitle')}
+                  </h4>
+                  <p className="text-[10px] font-medium text-slate-500 line-clamp-1">
+                    {t('portalAssignmentsDesc')}
+                  </p>
+                </div>
+              </button>
               
               {/* 1️⃣ كرت جدول المحاضرات الفوري */}
               <button 
-                onClick={() => setActiveView('schedule')} 
+               onClick={() => handleViewChange('schedule')}
                 className={`h-[125px] rounded-2xl p-3 flex flex-col justify-between relative group/card border ${activeView === 'schedule' ? 'border-indigo-400 shadow-md bg-white/90' : 'border-white/80 bg-white/60 hover:-translate-y-1 hover:bg-white'} backdrop-blur-md transition-all duration-500 ease-out text-right w-full cursor-pointer`}
               >
                 <div className="w-full h-[55px] rounded-xl bg-cover bg-center relative overflow-hidden border border-white/40 shadow-inner" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=400')" }}>
@@ -349,7 +420,7 @@ export default function StudentDashboard() {
 
               {/* 4️⃣ كرت إجراء المعاملات الطلابية */}
               <button 
-                onClick={() => setActiveView('transactions')} 
+             onClick={() => handleViewChange('transactions')}
                 className={`h-[125px] rounded-2xl p-3 flex flex-col justify-between relative group/card border ${activeView === 'transactions' ? 'border-amber-400 shadow-md bg-white/90' : 'border-white/80 bg-white/60 hover:-translate-y-1 hover:bg-white'} backdrop-blur-md transition-all duration-500 ease-out text-right w-full cursor-pointer`}
               >
                 <div className="w-full h-[55px] rounded-xl bg-cover bg-center relative overflow-hidden border border-white/40 shadow-inner" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=400')" }}>
@@ -364,7 +435,7 @@ export default function StudentDashboard() {
 
               {/* 5️⃣ كرت رفع الملخصات */}
               <button 
-                onClick={() => setActiveView('uploads')} 
+            onClick={() => handleViewChange('uploads')}
                 className={`h-[125px] rounded-2xl p-3 flex flex-col justify-between relative group/card border ${activeView === 'uploads' ? 'border-rose-400 shadow-md bg-white/90' : 'border-white/80 bg-white/60 hover:-translate-y-1 hover:bg-white'} backdrop-blur-md transition-all duration-500 ease-out text-right w-full cursor-pointer`}
               >
                 <div className="w-full h-[55px] rounded-xl bg-cover bg-center relative overflow-hidden border border-white/40 shadow-inner" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?q=80&w=400')" }}>
@@ -379,7 +450,7 @@ export default function StudentDashboard() {
 
               {/* 6️⃣ كرت دبلجة الفيديوهات بالذكاء الاصطناعي */}
               <button 
-                onClick={() => setActiveView('dubbing')} 
+            onClick={() => handleViewChange('dubbing')}
                 className={`h-[125px] rounded-2xl p-3 flex flex-col justify-between relative group/card border ${activeView === 'dubbing' ? 'border-purple-400 shadow-md bg-white/90' : 'border-white/80 bg-white/60 hover:-translate-y-1 hover:bg-white'} backdrop-blur-md transition-all duration-500 ease-out text-right w-full cursor-pointer`}
               >
                 <div className="w-full h-[55px] rounded-xl bg-cover bg-center relative overflow-hidden border border-white/40 shadow-inner" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1536240478700-b869070f9279?q=80&w=400')" }}>
@@ -463,91 +534,158 @@ export default function StudentDashboard() {
                 </div>
               </section>
             )}
+            {/* واجهة المهام والتكاليف (إضافتك) */}
+            {activeView === 'assignments' && (
+              <StudentAssignments studentData={studentData} />
+            )}
 
             {/* 3. واجهة إجراء المعاملات الطلابية (نظام التبويبات) */}
-            {activeView === 'transactions' && (
-              <section className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl p-6 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.01)] h-full min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col">
-                
-                {/* 📌 ترويسة القسم */}
-                <div className="flex items-center gap-3 mb-6 border-b border-slate-200/60 pb-4">
-                  <div className="w-1.5 h-6 rounded-full bg-amber-500" />
-                  <h3 className="text-xl font-black text-slate-900">{t('transactionsTitle')}</h3>
-                </div>
-
-                {/* 🗂️ الشريط الأفقي للتبويبات (Tabs Navbar) */}
-                <div className="flex overflow-x-auto pb-2 mb-6 gap-2 hide-scrollbar">
-                  {[
-                    { id: 'absence', name: t('tabAbsence'), icon: '📝' },
-                    { id: 'suspend', name: t('tabSuspend'), icon: '⏸️' },
-                    { id: 'resume', name: t('tabResume'), icon: '▶️' },
-                    { id: 'withdraw', name: t('tabWithdraw'), icon: '📂' },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTransactionTab(tab.id)}
-                      className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition-all duration-300 ${
-                        activeTransactionTab === tab.id
-                          ? 'bg-amber-500 text-white shadow-[0_4px_12px_rgba(245,158,11,0.3)]'
-                          : 'bg-white/60 text-slate-600 hover:bg-white hover:text-amber-600 border border-slate-200/50'
-                      }`}
-                    >
-                      <span className="text-lg">{tab.icon}</span>
-                      <span>{tab.name}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* 📋 منطقة عرض محتوى المعاملة المختارة */}
-                <div className="flex-grow bg-slate-50/50 border border-slate-200/60 rounded-2xl p-6 shadow-inner relative overflow-hidden">
-                  
-                  {activeTransactionTab === 'absence' && (
-                    <div className="animate-in fade-in duration-300">
-                      <h4 className="text-lg font-black text-slate-800 mb-2">{t('absenceTitle')}</h4>
-                      <p className="text-sm font-medium text-slate-500 mb-6">{t('absenceDesc')}</p>
-                      {/* سيتم وضع حقول نموذج الغياب هنا */}
-                      <div className="p-10 border-2 border-dashed border-amber-200 rounded-xl text-center text-amber-600 font-bold bg-amber-50/50">
-                        {t('absencePlaceholder')}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTransactionTab === 'suspend' && (
-                    <div className="animate-in fade-in duration-300">
-                      <h4 className="text-lg font-black text-slate-800 mb-2">{t('suspendTitle')}</h4>
-                      <p className="text-sm font-medium text-slate-500 mb-6">{t('suspendDesc')}</p>
-                      {/* سيتم وضع حقول نموذج وقف القيد هنا */}
-                      <div className="p-10 border-2 border-dashed border-slate-300 rounded-xl text-center text-slate-500 font-bold bg-white/50">
-                        {t('suspendPlaceholder')}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTransactionTab === 'resume' && (
-                    <div className="animate-in fade-in duration-300">
-                      <h4 className="text-lg font-black text-slate-800 mb-2">{t('resumeTitle')}</h4>
-                      <p className="text-sm font-medium text-slate-500 mb-6">{t('resumeDesc')}</p>
-                      {/* سيتم وضع حقول نموذج فتح القيد هنا */}
-                      <div className="p-10 border-2 border-dashed border-slate-300 rounded-xl text-center text-slate-500 font-bold bg-white/50">
-                        {t('resumePlaceholder')}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTransactionTab === 'withdraw' && (
-                    <div className="animate-in fade-in duration-300">
-                      <h4 className="text-lg font-black text-slate-800 mb-2">{t('withdrawTitle')}</h4>
-                      <p className="text-sm font-medium text-slate-500 mb-6">{t('withdrawDesc')}</p>
-                      {/* سيتم وضع حقول نموذج سحب الملف هنا */}
-                      <div className="p-10 border-2 border-dashed border-rose-300 rounded-xl text-center text-rose-500 font-bold bg-rose-50/50">
-                        {t('withdrawPlaceholder')}
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              </section>
-            )}
+          {activeView === 'transactions' && (
+          <section className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl p-6 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.01)] h-full min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col relative">
             
+            {/* ترويسة القسم */}
+            <div className="flex items-center gap-3 mb-8 border-b border-slate-200/60 pb-4">
+              <div className="w-1.5 h-6 rounded-full bg-amber-500" />
+              <h3 className="text-xl font-black text-slate-900">{t('transactionsTitle')}</h3>
+            </div>
+
+         {/* زر الغياب بعذر (مثال للزر الذكي) */}
+         <div>
+              <button 
+                onClick={() => {
+                  // فحص هل المعاملة مغلقة؟
+                  if (transactionSettings['absence']?.is_active === false) {
+                    alert(transactionSettings['absence']?.closed_message || 'عذراً، الخدمة غير متاحة حالياً.');
+                  } else {
+                    setOpenTransactionModal('absence');
+                  }
+                }} 
+                title={transactionSettings['absence']?.is_active === false ? transactionSettings['absence']?.closed_message : ''}
+                // تغيير شكل الزر ليكون باهتاً (grayscale) إذا كان مغلقاً
+                className={`flex items-center p-5 rounded-2xl transition-all rtl:text-right ltr:text-left gap-5 group w-full ${
+                  transactionSettings['absence']?.is_active === false 
+                    ? 'bg-slate-100/50 border border-rose-100 opacity-70 cursor-not-allowed grayscale' 
+                    : 'bg-white/60 hover:bg-white border border-slate-200 shadow-sm hover:shadow-md'
+                }`}
+              >
+                <div className="w-14 h-14 min-w-[56px] rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-inner">
+                  📝
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 text-lg">{t('btnAbsenceTitle')}</h4>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">{t('btnAbsenceDesc')}</p>
+                  
+                  {/* عرض رسالة المشرف داخل الزر بشكل أنيق إذا كانت المعاملة مغلقة */}
+                  {transactionSettings['absence']?.is_active === false && (
+                    <p className="text-[10px] font-bold text-rose-600 mt-2 bg-rose-50 border border-rose-100 px-2 py-1 rounded-lg inline-block">
+                      🔒 {transactionSettings['absence']?.closed_message}
+                    </p>
+                  )}
+                </div>
+              </button>
+
+              {/* زر فتح القيد */}
+              <button 
+                onClick={() => {
+                  if (transactionSettings['resume']?.is_active === false) {
+                    alert(transactionSettings['resume']?.closed_message || 'عذراً، الخدمة غير متاحة حالياً.');
+                  } else {
+                    setOpenTransactionModal('resume');
+                  }
+                }} 
+                title={transactionSettings['resume']?.is_active === false ? transactionSettings['resume']?.closed_message : ''}
+                className={`flex items-center p-5 rounded-2xl transition-all rtl:text-right ltr:text-left gap-5 group w-full ${
+                  transactionSettings['resume']?.is_active === false 
+                    ? 'bg-slate-100/50 border border-rose-100 opacity-70 cursor-not-allowed grayscale' 
+                    : 'bg-white/60 hover:bg-white border border-slate-200 shadow-sm hover:shadow-md'
+                }`}
+              >
+                <div className="w-14 h-14 min-w-[56px] rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-inner">
+                  ▶️
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 text-lg">{t('btnResumeTitle')}</h4>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">{t('btnResumeDesc')}</p>
+                  
+                  {transactionSettings['resume']?.is_active === false && (
+                    <p className="text-[10px] font-bold text-rose-600 mt-2 bg-rose-50 border border-rose-100 px-2 py-1 rounded-lg inline-block">
+                      🔒 {transactionSettings['resume']?.closed_message}
+                    </p>
+                  )}
+                </div>
+              </button>
+
+              {/* زر سحب الملف */}
+              <button 
+                onClick={() => {
+                  if (transactionSettings['withdraw']?.is_active === false) {
+                    alert(transactionSettings['withdraw']?.closed_message || 'عذراً، الخدمة غير متاحة حالياً.');
+                  } else {
+                    setOpenTransactionModal('withdraw');
+                  }
+                }} 
+                title={transactionSettings['withdraw']?.is_active === false ? transactionSettings['withdraw']?.closed_message : ''}
+                className={`flex items-center p-5 rounded-2xl transition-all rtl:text-right ltr:text-left gap-5 group w-full ${
+                  transactionSettings['withdraw']?.is_active === false 
+                    ? 'bg-slate-100/50 border border-rose-100 opacity-70 cursor-not-allowed grayscale' 
+                    : 'bg-white/60 hover:bg-white border border-slate-200 shadow-sm hover:shadow-md'
+                }`}
+              >
+                <div className="w-14 h-14 min-w-[56px] rounded-full bg-rose-50 text-rose-500 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-inner">
+                  🚪
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 text-lg">{t('btnWithdrawTitle')}</h4>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">{t('btnWithdrawDesc')}</p>
+                  
+                  {transactionSettings['withdraw']?.is_active === false && (
+                    <p className="text-[10px] font-bold text-rose-600 mt-2 bg-rose-50 border border-rose-100 px-2 py-1 rounded-lg inline-block">
+                      🔒 {transactionSettings['withdraw']?.closed_message}
+                    </p>
+                  )}
+                </div>
+              </button>
+</div>
+
+              {/* زر توقيف القيد (بنفس الطريقة) */}
+              <button 
+                onClick={() => {
+                  if (transactionSettings['suspend']?.is_active === false) {
+                    alert(transactionSettings['suspend']?.closed_message || 'عذراً، الخدمة غير متاحة حالياً.');
+                  } else {
+                    setOpenTransactionModal('suspend');
+                  }
+                }} 
+                title={transactionSettings['suspend']?.is_active === false ? transactionSettings['suspend']?.closed_message : ''}
+                className={`flex items-center p-5 rounded-2xl transition-all rtl:text-right ltr:text-left gap-5 group w-full ${
+                  transactionSettings['suspend']?.is_active === false 
+                    ? 'bg-slate-100/50 border border-rose-100 opacity-70 cursor-not-allowed grayscale' 
+                    : 'bg-white/60 hover:bg-white border border-slate-200 shadow-sm hover:shadow-md'
+                }`}
+              >
+                <div className="w-14 h-14 min-w-[56px] rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-inner">
+                  ⏸️
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 text-lg">{t('btnSuspendTitle')}</h4>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">{t('btnSuspendDesc')}</p>
+                  
+                  {transactionSettings['suspend']?.is_active === false && (
+                    <p className="text-[10px] font-bold text-rose-600 mt-2 bg-rose-50 border border-rose-100 px-2 py-1 rounded-lg inline-block">
+                      🔒 {transactionSettings['suspend']?.closed_message}
+                    </p>
+                  )}
+                </div>
+              </button>
+
+            {/* استدعاء النوافذ المنبثقة */}
+            <AbsenceTransaction isOpen={openTransactionModal === 'absence'} onClose={() => setOpenTransactionModal(null)} studentData={studentData} />
+            <SuspendTransaction isOpen={openTransactionModal === 'suspend'} onClose={() => setOpenTransactionModal(null)} studentData={studentData} />
+            <ResumeTransaction isOpen={openTransactionModal === 'resume'} onClose={() => setOpenTransactionModal(null)} studentData={studentData} />
+            <WithdrawTransaction isOpen={openTransactionModal === 'withdraw'} onClose={() => setOpenTransactionModal(null)} studentData={studentData} />
+
+          </section>
+        )}
             {/* واجهة منصة رفع الملخصات (المقيدة ببيانات الطالب) */}
             {activeView === 'uploads' && (
               <section className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.01)] h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
