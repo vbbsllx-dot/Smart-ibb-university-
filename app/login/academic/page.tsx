@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabase';
+import ForgotPasswordModal from '@/app/components/ForgotPasswordModal';
 
 function AcademicLoginContent() {
   const router = useRouter();
@@ -17,7 +18,10 @@ function AcademicLoginContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [notification, setNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
+
+  // 🔐 حالة نافذة استعادة كلمة المرور
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
   // 🎯 حالة الاهتزاز عند الخطأ
   const [isShaking, setIsShaking] = useState(false);
@@ -27,27 +31,61 @@ function AcademicLoginContent() {
 
   const destination = searchParams.get('dest');
 
-  // دالة تفعيل الاهتزاز عند الخطأ
+  // 🔄 استرجاع اسم المستخدم المحفوظ في حال تفعيل "تذكر بياناتي" سابقاً
+  useEffect(() => {
+    const isRemembered = localStorage.getItem('remember_academic') === 'true';
+    const savedUsername = localStorage.getItem('university_username');
+    if (isRemembered && savedUsername) {
+      setUsername(savedUsername);
+      setRememberMe(true);
+    }
+  }, []);
+
+  // دالة تفعيل الاهتزاز والتنبيه عند الخطأ
   const triggerError = (msg: string) => {
-    setNotification(msg);
+    setNotification({ text: msg, type: 'error' });
     setIsShaking(true);
     setTimeout(() => setIsShaking(false), 600);
     setIsLoading(false);
   };
-
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setNotification(null);
 
     try {
-      const { data: user, error } = await supabase
+      const cleanInput = username.trim();
+
+      // 1. البحث المباشر عبر username في جدول user_accounts
+      let { data: user } = await supabase
         .from('user_accounts')
         .select('*')
-        .eq('username', username.trim())
-        .single();
+        .eq('username', cleanInput)
+        .limit(1)
+        .maybeSingle();
 
-      if (error || !user) {
+      // 2. إذا لم يوجد وكان المدخل رقماً، نبحث بالمعرف الأكاديمي في جدول instructors
+      if (!user && !isNaN(Number(cleanInput))) {
+        const { data: instructorRecord } = await supabase
+          .from('instructors')
+          .select('user_account_id')
+          .eq('id', Number(cleanInput))
+          .limit(1)
+          .maybeSingle();
+
+        if (instructorRecord?.user_account_id) {
+          const { data: linkedUser } = await supabase
+            .from('user_accounts')
+            .select('*')
+            .eq('id', instructorRecord.user_account_id)
+            .limit(1)
+            .maybeSingle();
+
+          user = linkedUser;
+        }
+      }
+
+      if (!user) {
         triggerError(t('errNotFound'));
         return;
       }
@@ -71,20 +109,22 @@ function AcademicLoginContent() {
       }
 
       const targetPath = destination || '/faculty/dashboard';
-      setNotification(t('successLogin'));
+      setNotification({ text: t('successLogin'), type: 'success' });
       
-      localStorage.setItem('university_username', username.trim());
+      // نحفظ user.username الأصلي لضمان عمل لوحة الدكتور بسلاسة
+      localStorage.setItem('university_username', user.username);
       if (rememberMe) {
         localStorage.setItem('remember_academic', 'true');
+      } else {
+        localStorage.removeItem('remember_academic');
       }
 
-      setTimeout(() => router.push(targetPath), 1200);
+      setTimeout(() => router.push(targetPath), 1000);
 
     } catch (err) {
       triggerError(t('errServer'));
     }
   };
-
   return (
     <div className="bg-[#050811] text-slate-200 min-h-screen relative overflow-hidden flex flex-col justify-center items-center p-4 sm:p-6">
       
@@ -102,15 +142,23 @@ function AcademicLoginContent() {
       <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.02)_0%,transparent_70%)]" />
       <div className="absolute w-[450px] h-[450px] rounded-full blur-[140px] bottom-[-10%] start-[-5%] bg-blue-500/[0.04]" />
 
-      {/* التوست التنبيهي */}
+      {/* 🔔 التوست التنبيهي الذكي (أحمر للخطأ / أخضر للنجاح) */}
       {notification && (
-        <div className="fixed top-6 max-w-[400px] w-[90%] px-5 py-4 rounded-2xl border backdrop-blur-3xl z-50 shadow-2xl bg-blue-950/90 border-blue-500/30 text-blue-300 flex items-center gap-3.5 animate-in fade-in slide-in-from-top-4">
+        <div className={`fixed top-6 max-w-[400px] w-[90%] px-5 py-4 rounded-2xl border backdrop-blur-3xl z-50 shadow-2xl flex items-center gap-3.5 animate-in fade-in slide-in-from-top-4 ${
+          notification.type === 'success' 
+            ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-300' 
+            : 'bg-rose-950/90 border-rose-500/40 text-rose-300'
+        }`}>
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-current"></span>
           </span>
-          <p className="text-xs font-bold flex-1">{notification}</p>
-          <button type="button" onClick={() => setNotification(null)} className="text-[11px] opacity-50 hover:opacity-100 px-2 py-1 rounded-lg bg-white/5">
+          <p className="text-xs font-bold flex-1">{notification.text}</p>
+          <button 
+            type="button" 
+            onClick={() => setNotification(null)} 
+            className="text-[11px] opacity-60 hover:opacity-100 px-2 py-1 rounded-lg bg-white/5 cursor-pointer"
+          >
             {t('close')}
           </button>
         </div>
@@ -123,7 +171,7 @@ function AcademicLoginContent() {
         className="w-full max-w-[450px] bg-[#090f1c]/60 backdrop-blur-3xl border border-blue-500/15 rounded-[32px] p-6 sm:p-8 shadow-[0_30px_60px_rgba(0,0,0,0.8)] relative z-10 mt-10"
       >
         
-        {/* أفاتار الكادر الأكاديمي التفاعلي بالكامل */}
+        {/* أفاتار الكادر الأكاديمي التفاعلي */}
         <div className="w-full flex justify-center mb-6 h-28 relative select-none">
           <div className="absolute w-24 h-24 rounded-full blur-2xl opacity-20 bg-blue-500" />
           <svg className="w-28 h-28 relative z-10" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -200,7 +248,7 @@ function AcademicLoginContent() {
               <button 
                 type="button" 
                 onClick={() => setShowPassword(!showPassword)} 
-                className="absolute end-4 text-slate-500 hover:text-blue-400 transition-colors p-1 select-none"
+                className="absolute end-4 text-slate-500 hover:text-blue-400 transition-colors p-1 select-none cursor-pointer"
                 title={showPassword ? t('hidePassword') : t('showPassword')}
               >
                 {showPassword ? (
@@ -227,15 +275,21 @@ function AcademicLoginContent() {
               />
               <span className="group-hover:text-slate-300">{t('rememberMe')}</span>
             </label>
-            <Link href="/login/register" className="hover:text-blue-400 font-semibold transition-colors">
+
+            {/* 🔑 زر فتح نافذة استعادة كلمة المرور بدلاً من التحويل لصفحة التسجيل */}
+            <button
+              type="button"
+              onClick={() => setIsForgotModalOpen(true)}
+              className="hover:text-blue-400 font-semibold transition-colors cursor-pointer"
+            >
               {t('forgotPassword')}
-            </Link>
+            </button>
           </div>
 
           <button 
             type="submit" 
             disabled={isLoading} 
-            className="w-full text-white font-bold py-4 px-4 rounded-2xl text-sm transition-all duration-300 active:scale-[0.98] mt-4 shadow-xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:shadow-[0_0_25px_rgba(59,130,246,0.3)] flex items-center justify-center gap-2.5 group select-none"
+            className="w-full text-white font-bold py-4 px-4 rounded-2xl text-sm transition-all duration-300 active:scale-[0.98] mt-4 shadow-xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:shadow-[0_0_25px_rgba(59,130,246,0.3)] flex items-center justify-center gap-2.5 group select-none cursor-pointer disabled:opacity-60"
           >
             {isLoading ? (
               <span>{t('authenticating')}</span>
@@ -264,6 +318,14 @@ function AcademicLoginContent() {
         </div>
 
       </motion.div>
+
+      {/* 🔐 نافذة استعادة كلمة المرور بالثيم الأزرق الأكاديمي */}
+      <ForgotPasswordModal
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
+        initialUsername={username}
+        theme="blue"
+      />
     </div>
   );
 }

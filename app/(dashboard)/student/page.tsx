@@ -13,6 +13,7 @@ import AbsenceTransaction from '../../components/student/AbsenceTransaction';
 import SuspendTransaction from '../../components/student/SuspendTransaction';
 import ResumeTransaction from '../../components/student/ResumeTransaction';
 import WithdrawTransaction from '../../components/student/WithdrawTransaction';
+import { BrainCircuit } from 'lucide-react';
 
 
 
@@ -285,6 +286,15 @@ const [openTransactionModal, setOpenTransactionModal] = useState<string | null>(
           </Link>
         </div>
       </header>
+      <Link 
+  href="/student/mcq" 
+  target="_blank"
+  rel="noopener noreferrer"
+  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-center font-black py-3 rounded-2xl shadow-[0_10px_20px_rgba(16,185,129,0.2)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 cursor-pointer"
+>
+  <BrainCircuit className="w-5 h-5 animate-pulse" />
+  <span>مولد المراجعة والاختبارات (MCQ)</span>
+</Link>
 
       {/* 📊 محتوى لوحة التحكم */}
       {loading ? (

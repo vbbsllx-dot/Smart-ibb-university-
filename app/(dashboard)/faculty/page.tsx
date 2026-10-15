@@ -38,6 +38,7 @@ import ResourceCarousel from './ResourceCarousel';
 import StudentRosterTable from './StudentRosterTable';
 import ProjectsManager from '@/app/components/admin/ProjectsManager';
 import ThesesManager from '@/app/components/admin/ThesesManager';
+import { BrainCircuit } from 'lucide-react'; // تأكد من إضافة BrainCircuit إذا لم تكن موجودة
 
 const departmentNamesMap: { [key: number]: string } = {
   1: 'هندسة الحاسبات والتحكم', 2: 'الهندسة المدنية', 3: 'الهندسة المعمارية', 4: 'هندسة الاتصالات',
@@ -1090,6 +1091,15 @@ export default function AdvancedFacultyDashboard() {
           </Link>
         </div>
       </header>
+      <Link 
+  href="/faculty/mcq" 
+  target="_blank" 
+  rel="noopener noreferrer"
+  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-center font-black py-3 rounded-2xl shadow-[0_10px_20px_rgba(59,130,246,0.2)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 cursor-pointer"
+>
+  <BrainCircuit className="w-5 h-5 animate-pulse" />
+  <span>توليد الاختبارات الذكية (MCQ)</span>
+</Link>
 
       {/* ترويسة الطباعة الرسمية النظيفة */}
       <div className="hidden print:flex flex-col items-center text-center border-b-2 border-slate-900 pb-4 mb-6 w-full text-slate-900 select-none">
