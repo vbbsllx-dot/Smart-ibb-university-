@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { 
   ChevronLeft, 
@@ -13,24 +13,47 @@ import {
   Pencil
 } from 'lucide-react';
 
-const departmentNamesMap: { [key: string | number]: string } = {
+const departmentNamesMap: Record<number, string> = {
   1: 'هندسة الحاسبات والتحكم', 2: 'الهندسة المدنية', 3: 'الهندسة المعمارية', 4: 'هندسة الاتصالات',
   5: 'الطب البشري', 6: 'المختبرات الطبية', 7: 'التمريض', 8: 'طب وجراحة الفم والأسنان',
   9: 'الشريعة والقانون', 10: 'إدارة الأعمال', 11: 'المحاسبة', 12: 'العلوم المالية والمصرفية'
 };
 
-const levelNamesMap: { [key: string | number]: string } = {
-  1: 'المستوى الأول', 2: 'المستوى الثاني', 3: 'المستوى الثالث', 4: 'المستوى الرابع', 5: 'المستوى الخامس', 6: 'المستوى السادس', 7: 'المستوى السابع'
+const levelNamesMap: Record<number, string> = {
+  1: 'المستوى الأول', 2: 'المستوى الثاني', 3: 'المستوى الثالث', 4: 'المستوى الرابع', 
+  5: 'المستوى الخامس', 6: 'المستوى السادس', 7: 'المستوى السابع'
 };
 
+// 🛡️ تعريف واجهات البيانات بدقة لمنع أخطاء TypeScript و ESLint
+export interface ResourceItem {
+  id: number;
+  title: string;
+  file_url: string | null;
+  thumbnail_url?: string | null;
+  resource_type: 'accredited_book' | 'summary_pdf' | 'educational_video' | string;
+  dept_id?: number | string;
+  dep_id?: number | string;
+  level_id?: number | string;
+  semester?: number | string;
+  custom_columns?: string[];
+}
+
+interface RouterInstance {
+  push: (href: string) => void;
+}
+
 interface ResourceCarouselProps {
-  myResources: any[];
-  selectedResource: any;
-  onSelectResource: (resource: any, shouldLoad: boolean) => void; 
-  onDeleteResource: (id: number, e: React.MouseEvent) => void;
+  myResources: ResourceItem[];
+  selectedResource: ResourceItem | null;
+  onSelectResource: (resource: ResourceItem, shouldLoad: boolean) => void; 
+  onDeleteResource: (id: number, e: React.MouseEvent<HTMLButtonElement>) => void;
   setPreviewUrl: (url: string | null) => void;
   setPreviewType: (type: string | null) => void;
-  router: any;
+  router: RouterInstance;
+}
+
+interface CustomWindow extends Window {
+  webkitAudioContext?: typeof AudioContext;
 }
 
 export default function ResourceCarousel({
@@ -43,27 +66,29 @@ export default function ResourceCarousel({
   router
 }: ResourceCarouselProps) {
   const t = useTranslations('ResourceCarousel');
-  const tGlobal = useTranslations('RegistrationDetails');
 
   // 🟢 حالة خاصة بمؤشر المرجع المعروض حالياً بمنتصف الكاروسيل
   const [carouselIndex, setCarouselIndex] = useState<number>(0);
 
   // 🔄 مزامنة المؤشر المحلي عند اختيار مرجع محدد أو تحديث قائمة المراجع
   useEffect(() => {
-    if (selectedResource && myResources.length > 0) {
-      const foundIdx = myResources.findIndex(r => r.id === selectedResource.id);
+    if (selectedResource?.id && myResources.length > 0) {
+      const foundIdx = myResources.findIndex((r) => r.id === selectedResource.id);
       if (foundIdx >= 0) {
         setCarouselIndex(foundIdx);
       }
     }
-  }, [selectedResource, myResources]);
+  }, [selectedResource?.id, myResources]);
 
-  // 🔔 دالة توليد صوت النقر الكريستالي برمجياً
-  const playClickSound = () => {
+  // 🔔 دالة توليد صوت النقر الكريستالي برمجياً مع إغلاق الـ Context لمنع تسرب الذاكرة
+  const playClickSound = useCallback(() => {
     try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
+      if (typeof window === 'undefined') return;
+      const customWin = window as CustomWindow;
+      const AudioCtx = window.AudioContext || customWin.webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const ctx = new AudioCtx();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
@@ -76,20 +101,40 @@ export default function ResourceCarousel({
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.15);
-    } catch (e) {
-      console.log(e);
-    }
-  };
 
-  const handleCardClick = (res: any) => {
+      osc.onended = () => {
+        ctx.close().catch(() => {});
+      };
+    } catch {
+      // تجاهل الأخطاء الصامتة في المتصفحات التي تمنع التشغيل التلقائي للصوت
+    }
+  }, []);
+
+  const handleCardClick = useCallback((res: ResourceItem) => {
     playClickSound();
-    onSelectResource(res, true); // 🟢 فتح المرجع وتحميل بياناته
-  };
+    onSelectResource(res, true);
+  }, [playClickSound, onSelectResource]);
+
+  // 🎯 حساب المؤشر الدائري النشط بأمان تام
+  const activeIdx = useMemo(() => {
+    if (myResources.length === 0) return 0;
+    return ((carouselIndex % myResources.length) + myResources.length) % myResources.length;
+  }, [carouselIndex, myResources.length]);
 
   // 🎯 المرجع المعروض حالياً بمنتصف الكاروسيل للترويسة العلوية
-  const activeDisplayResource = myResources.length > 0 
-    ? myResources[carouselIndex % myResources.length] 
-    : selectedResource;
+  const activeDisplayResource = useMemo(() => {
+    return myResources.length > 0 ? myResources[activeIdx] : selectedResource;
+  }, [myResources, activeIdx, selectedResource]);
+
+  const getDeptLabel = useCallback((res: ResourceItem) => {
+    const id = Number(res.dept_id ?? res.dep_id ?? 0);
+    return departmentNamesMap[id] || t('defaultDept');
+  }, [t]);
+
+  const getLevelLabel = useCallback((res: ResourceItem) => {
+    const id = Number(res.level_id ?? 0);
+    return levelNamesMap[id] || `${t('levelPrefix')} ${res.level_id ?? ''}`;
+  }, [t]);
 
   return (
     <section className="border border-white/60 bg-white/40 backdrop-blur-xl rounded-3xl shadow-sm overflow-hidden print:hidden relative">
@@ -111,11 +156,11 @@ export default function ResourceCarousel({
             </span>
 
             <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-xl text-[11px] font-bold">
-              🏢 {tGlobal(`departments.${activeDisplayResource.dept_id || activeDisplayResource.dep_id}` as any) || departmentNamesMap[Number(activeDisplayResource.dept_id || activeDisplayResource.dep_id)] || t('defaultDept')}
+              🏢 {getDeptLabel(activeDisplayResource)}
             </span>
 
             <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-xl text-[11px] font-bold">
-              🎓 {tGlobal(`levels.${activeDisplayResource.level_id}` as any) || levelNamesMap[Number(activeDisplayResource.level_id)] || `${t('levelPrefix')} ${activeDisplayResource.level_id}`}
+              🎓 {getLevelLabel(activeDisplayResource)}
             </span>
           </div>
         ) : (
@@ -130,7 +175,10 @@ export default function ResourceCarousel({
       </div>
 
       {/* المسرح ثلاثي الأبعاد */}
-      <div className="w-full h-[270px] flex items-center justify-center [perspective:1400px] overflow-hidden relative bg-slate-50/50 select-none py-4">
+      <div 
+        className="w-full flex items-center justify-center overflow-hidden relative bg-slate-50/50 select-none py-4"
+        style={{ height: '270px', perspective: '1400px' }}
+      >
 
         {/* 🏹 السهم الأيمن */}
         <button 
@@ -141,7 +189,7 @@ export default function ResourceCarousel({
               setCarouselIndex((prev) => (prev - 1 + myResources.length) % myResources.length);
             }
           }}
-          className="absolute end-6 z-40 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+          className="absolute inset-e-6 z-40 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
         >
           <ChevronRight className="w-4 h-4 rtl:rotate-180" />
         </button>
@@ -155,15 +203,17 @@ export default function ResourceCarousel({
               setCarouselIndex((prev) => (prev + 1) % myResources.length);
             }
           }}
-          className="absolute start-6 z-40 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+          className="absolute inset-s-6 z-40 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-lg border border-slate-200 hover:scale-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
         >
           <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
         </button>
 
         {/* الحلقة الدوارة */}
         <div 
-          className="relative w-[300px] h-[155px] transition-transform duration-700 ease-out flex items-center justify-center"
+          className="relative transition-transform duration-700 ease-out flex items-center justify-center"
           style={{ 
+            width: '300px',
+            height: '155px',
             transformStyle: 'preserve-3d',
             transform: `rotateY(${carouselIndex * 45}deg)`
           }}
@@ -171,7 +221,6 @@ export default function ResourceCarousel({
           {myResources.length > 0 ? (
             myResources.map((res, idx) => {
               const anglePerItem = 45; 
-              const activeIdx = ((carouselIndex % myResources.length) + myResources.length) % myResources.length;
 
               let distance = Math.abs(idx - activeIdx);
               if (distance > myResources.length / 2) {
@@ -181,29 +230,32 @@ export default function ResourceCarousel({
               const isCurrent = idx === activeIdx;
               const isAdjacent = distance === 1; 
 
-              let cardStyle = {};
-              if (isCurrent) {
-                cardStyle = {
-                  transform: `rotateY(${-idx * anglePerItem}deg) translateZ(360px) scale(1)`,
-                  opacity: 1, 
-                  zIndex: 50,
-                  pointerEvents: 'auto' as const
-                };
-              } else if (isAdjacent) {
-                cardStyle = {
-                  transform: `rotateY(${-idx * anglePerItem}deg) translateZ(330px) scale(0.85)`,
-                  opacity: 0.35, 
-                  zIndex: 20,
-                  pointerEvents: 'auto' as const
-                };
-              } else {
-                cardStyle = {
-                  transform: `rotateY(${-idx * anglePerItem}deg) translateZ(280px) scale(0.7)`,
-                  opacity: 0, 
-                  zIndex: 10,
-                  pointerEvents: 'none' as const
-                };
-              }
+              const cardStyle: React.CSSProperties = isCurrent
+                ? {
+                    transform: `rotateY(${-idx * anglePerItem}deg) translateZ(360px) scale(1)`,
+                    opacity: 1,
+                    zIndex: 50,
+                    pointerEvents: 'auto'
+                  }
+                : isAdjacent
+                ? {
+                    transform: `rotateY(${-idx * anglePerItem}deg) translateZ(330px) scale(0.85)`,
+                    opacity: 0.35,
+                    zIndex: 20,
+                    pointerEvents: 'auto'
+                  }
+                : {
+                    transform: `rotateY(${-idx * anglePerItem}deg) translateZ(280px) scale(0.7)`,
+                    opacity: 0,
+                    zIndex: 10,
+                    pointerEvents: 'none'
+                  };
+
+              const coverSrc = res.thumbnail_url || (
+                res.resource_type === 'accredited_book'
+                  ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500'
+                  : 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=500'
+              );
 
               return (
                 <div
@@ -222,12 +274,10 @@ export default function ResourceCarousel({
                 >
                   {/* 🖼️ خلفية المادة/المستند */}
                   <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
-                      src={res.thumbnail_url || (
-                        res.resource_type === 'accredited_book' ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500' : 
-                        'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=500'
-                      )} 
-                      alt="Cover"
+                      src={coverSrc} 
+                      alt={res.title || "Cover"}
                       className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                     />
                   </div>
@@ -265,7 +315,7 @@ export default function ResourceCarousel({
                               setPreviewUrl(res.file_url);
                               setPreviewType(res.resource_type);
                             }}
-                            className="p-1.5 rounded-xl bg-slate-900/80 hover:bg-indigo-600 text-white border border-white/20 backdrop-blur-xl shadow-lg transition-all active:scale-90"
+                            className="p-1.5 rounded-xl bg-slate-900/80 hover:bg-indigo-600 text-white border border-white/20 backdrop-blur-xl shadow-lg transition-all active:scale-90 cursor-pointer"
                             title={t('previewTooltip')}
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -277,9 +327,10 @@ export default function ResourceCarousel({
                             onClick={(e) => {
                               e.stopPropagation(); 
                               playClickSound();
-                              router.push(`/faculty/upload?edit=true&id=${res.id}&title=${encodeURIComponent(res.title)}&type=${res.resource_type}&dept=${res.dept_id}&level=${res.level_id}`);
+                              const targetDept = res.dept_id ?? res.dep_id ?? '';
+                              router.push(`/faculty/upload?edit=true&id=${res.id}&title=${encodeURIComponent(res.title)}&type=${res.resource_type}&dept=${targetDept}&level=${res.level_id ?? ''}`);
                             }}
-                            className="p-1.5 rounded-xl bg-slate-900/80 hover:bg-sky-600 text-white border border-white/20 backdrop-blur-xl shadow-lg transition-all active:scale-90"
+                            className="p-1.5 rounded-xl bg-slate-900/80 hover:bg-sky-600 text-white border border-white/20 backdrop-blur-xl shadow-lg transition-all active:scale-90 cursor-pointer"
                             title={t('editTooltip')}
                           >
                             <Pencil className="w-3.5 h-3.5" />
@@ -289,7 +340,7 @@ export default function ResourceCarousel({
                           <button 
                             type="button"
                             onClick={(e) => onDeleteResource(res.id, e)}
-                            className="p-1.5 rounded-xl bg-slate-900/80 hover:bg-rose-600 text-white border border-white/20 backdrop-blur-xl shadow-lg transition-all active:scale-90"
+                            className="p-1.5 rounded-xl bg-slate-900/80 hover:bg-rose-600 text-white border border-white/20 backdrop-blur-xl shadow-lg transition-all active:scale-90 cursor-pointer"
                             title={t('deleteTooltip')}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -304,7 +355,7 @@ export default function ResourceCarousel({
                         {res.title}
                       </h4>
                       <p className="text-[9.5px] text-indigo-300 font-bold mt-0.5 truncate">
-                        {tGlobal(`departments.${res.dept_id || res.dep_id}` as any) || departmentNamesMap[Number(res.dept_id || res.dep_id)]}
+                        {getDeptLabel(res)}
                       </p>
                     </div>
 
@@ -313,7 +364,7 @@ export default function ResourceCarousel({
               );
             })
           ) : (
-            <div className="text-center text-slate-400 font-bold text-xs [transform:translateZ(0)]">
+            <div className="text-center text-slate-400 font-bold text-xs">
               {t('noLectures')}
             </div>
           )}
